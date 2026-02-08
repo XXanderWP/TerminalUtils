@@ -1,9 +1,13 @@
 # TerminalUtils
 
-![TerminalUtils](./logo.png)
+<img src="./logo.png" width="50%">
 
 Lightweight cross-platform utilities to manage servers and GitHub repositories from the terminal.
 
+[![Dynamic TOML Badge](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FXXanderWP%2FTerminalUtils%2Frefs%2Fheads%2Fmain%2Fpyproject.toml&query=%24.project.version&logo=gitforwindows&label=App%20version)](https://github.com/XXanderWP/TerminalUtils/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+[![Platform](https://img.shields.io/badge/platform-MacOS-lightgrey.svg)](https://developer.apple.com/macos/)
+[![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](http://linux.com/)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
