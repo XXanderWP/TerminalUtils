@@ -1,0 +1,98 @@
+name: Create Release
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release from pyproject version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install toml
+        run: python -m pip install --upgrade pip && pip install toml
+
+      - name: Read version from pyproject.toml
+        id: get_version
+        run: |
+          python - <<'PY'
+          import os, sys, toml
+          data = toml.load('pyproject.toml')
+          v = data.get('project', {}).get('version') or data.get('tool', {}).get('poetry', {}).get('version')
+          if not v:
+              print('No version found in pyproject.toml')
+              sys.exit(1)
+          print('Found version:', v)
+          with open(os.environ['GITHUB_ENV'], 'a') as fh:
+              fh.write(f'RELEASE_VERSION={v}\n')
+          PY
+
+      - name: 🔍 Check if release exists (only on Windows)
+        id: check_release
+        shell: bash
+        run: |
+          VERSION="v${{ env.RELEASE_VERSION }}"
+          echo "Checking for release $VERSION..."
+          if gh release view "$VERSION" 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ❌ Cancel workflow if release exists
+        if: steps.check_release.outputs.exists == 'true'
+        run: |
+          echo "Release v${{ env.RELEASE_VERSION }} already exists. Cancelling workflow."
+          exit 1
+
+      - name: Create git tag
+        env:
+          VERSION: ${{ env.RELEASE_VERSION }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}" || echo "tag exists"
+          git push origin "refs/tags/v${VERSION}"
+          
+
+      - name: Prepare release payload (exclude installers)
+        run: |
+          mkdir -p release_payload
+          cp LICENSE README.md release_payload/ || true
+          for pat in "*.png" "*.ps1" "*.py" "*.sh" "*.toml"; do
+            for f in $pat; do
+              if [ -e "$f" ]; then
+                case "$f" in
+                  install.sh|install.ps1|install.psh)
+                    ;; # skip installer files
+                  *)
+                    cp -r "$f" release_payload/ || true
+                    ;;
+                esac
+              fi
+            done
+          done
+
+      - name: Create GitHub Release and upload payload
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ env.RELEASE_VERSION }}"
+          name: "v${{ env.RELEASE_VERSION }}"
+          body: "Automated release created by workflow from pyproject.toml version"
+          files: release_payload/*

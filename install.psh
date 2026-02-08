@@ -1,0 +1,4 @@
+#!/usr/bin/env pwsh
+# Alternative PowerShell installer (portable)
+Write-Host "This is a powershell-compatible installer placeholder. Use install.ps1 on Windows." -ForegroundColor Yellow
+

@@ -1,0 +1,13 @@
+[project]
+name = "terminalutils"
+version = "0.1.0"
+description = "Terminal utilities for servers and repository management"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [ { name = "XXanderWP" } ]
+license = { text = "MIT" }
+dependencies = [
+    "questionary>=1.10.0",
+    "toml>=0.10.2",
+]
+

@@ -1,0 +1,1 @@
+python $PSScriptRoot\ssh-servers-handler.py
