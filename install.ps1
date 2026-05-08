@@ -1,7 +1,8 @@
 <#
 Windows installer for TerminalUtils
-- Checks for Python and attempts to install via winget if available
+- Checks for Node.js and attempts to install via winget if available
 - Downloads latest release zip from GitHub and extracts it into the current folder
+- Installs npm dependencies
 - Adds the install folder to the user PATH persistently using setx
 Note: running this script requires administrative privileges for installing system packages.
 #>
@@ -13,33 +14,31 @@ function Error($msg) { Write-Host "[error] $msg" -ForegroundColor Red }
 
 $repo = 'https://api.github.com/repos/XXanderWP/TerminalUtils/releases/latest'
 
-function Check-Python {
-    $py = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $py) { $py = Get-Command python3 -ErrorAction SilentlyContinue }
-    return $py
+function Check-Node {
+    return Get-Command node -ErrorAction SilentlyContinue
 }
 
-function Try-Install-Python {
+function Try-Install-Node {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Info 'Installing Python using winget...'
-        winget install --id=Python.Python.3 -e --silent
-        return Check-Python
+        Info 'Installing Node.js LTS using winget...'
+        winget install --id=OpenJS.NodeJS.LTS -e --silent
+        return Check-Node
     }
     return $null
 }
 
-Info 'Checking Python...'
-$py = Check-Python
-if (-not $py) {
-    Info 'Python not found. Attempting to install...'
-    $py = Try-Install-Python
-    if (-not $py) {
-        Error 'Automatic Python installation is not available. Please install Python 3 manually and re-run this script.'
+Info 'Checking Node.js...'
+$node = Check-Node
+if (-not $node) {
+    Info 'Node.js not found. Attempting to install...'
+    $node = Try-Install-Node
+    if (-not $node) {
+        Error 'Automatic Node.js installation is not available. Please install Node.js LTS manually and re-run this script.'
         exit 1
     }
 }
 
-Info ("Using Python: {0}" -f ($py.Path))
+Info ("Using Node.js: {0}" -f ($node.Path))
 
 Info 'Querying latest release...'
 try {
@@ -69,6 +68,18 @@ if ($dirs.Count -ge 1) {
 }
 Remove-Item -Path $tmp -Recurse -Force
 Remove-Item -Path $out -Force
+
+Info 'Installing npm dependencies...'
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Error 'npm is not available in PATH.'
+    exit 1
+}
+
+npm install --omit=dev
+if ($LASTEXITCODE -ne 0) {
+    Error 'npm install failed.'
+    exit 1
+}
 
 Info 'Adding install folder to user PATH...'
 $installPath = (Get-Location).Path

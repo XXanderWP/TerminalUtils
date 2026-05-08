@@ -8,7 +8,7 @@ Lightweight cross-platform utilities to manage servers and GitHub repositories f
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![Platform](https://img.shields.io/badge/platform-MacOS-lightgrey.svg)](https://developer.apple.com/macos/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](http://linux.com/)
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![Node](https://img.shields.io/badge/node-18%2B-green.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Repository: https://github.com/XXanderWP/TerminalUtils
@@ -17,74 +17,69 @@ Repository: https://github.com/XXanderWP/TerminalUtils
 
 This project contains small helpers and a simple interactive menu to perform frequent tasks:
 - connect to SSH servers,
-- create and merge GitHub pull requests (via `gh`),
-- bump project versions for Python or Node.js projects.
+- create and merge GitHub pull requests (via GitHub REST API),
+- bump project versions for Node.js, Python-style `pyproject.toml`, or plain `VERSION` projects.
 
-All interactive scripts are implemented in Python and include platform-specific launcher wrappers for Unix (`.sh`) and Windows PowerShell (`.ps1`). Comments and user-facing strings are in English.
+All interactive scripts are implemented in Node.js and run in TUI format in the terminal (via `inquirer` and terminal UI styling). Platform-specific launchers for Unix (`.sh`) and Windows PowerShell (`.ps1`) are included.
 
 ## Key files
 
-- Main menu (Python): [`util_handler.py`](util_handler.py:1)
+- Main menu (Node.js): [`util-handler.js`](util-handler.js:1)
 - Unix launcher: [`util.sh`](util.sh:1)
 - PowerShell launcher: [`util.ps1`](util.ps1:1)
-- SSH helper: [`ssh-servers-handler.py`](ssh-servers-handler.py:1)
+- SSH helper: [`ssh-servers-handler.js`](ssh-servers-handler.js:1)
 - Servers data (externalized): [`servers.txt`](servers.txt:1)
-- Upload / PR helper: [`upload-handler.py`](upload-handler.py:1) and wrappers [`upload.sh`](upload.sh:1), [`upload.ps1`](upload.ps1:1)
-- Version bump helper: [`new-version.py`](new-version.py:1) and wrappers [`new-version.sh`](new-version.sh:1), [`new-version.ps1`](new-version.ps1:1)
-- Repo configurations: [`repos.py`](repos.py:1)
+- Upload / PR helper: [`upload-handler.js`](upload-handler.js:1) and wrappers [`upload.sh`](upload.sh:1), [`upload.ps1`](upload.ps1:1)
+- Version bump helper: [`new-version.js`](new-version.js:1) and wrappers [`new-version.sh`](new-version.sh:1), [`new-version.ps1`](new-version.ps1:1)
+- Update checker: [`update-check.js`](update-check.js:1)
+- Repo configuration loader: [`repos.js`](repos.js:1)
 
 ## Requirements
 
-- Python 3.8+
-- Python packages (install via the provided requirements file):
+- Node.js 18+
+- Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+npm install
 ```
 
 - External tools used by features:
   - git
-  - gh (GitHub CLI) — required for PR creation/merge
   - ssh
-  - npm (only if bumping versions for Node.js projects)
+  - npm
+  - `GITHUB_TOKEN` (or `GH_TOKEN`) environment variable for GitHub API operations
 
-### GitHub CLI (gh)
+### GitHub Authorization
 
-The upload/PR helper (`upload-handler.py`) uses the GitHub CLI (`gh`) to create and merge pull requests. Install and authenticate the CLI before using that feature.
+The upload/PR helper (`upload-handler.js`) calls GitHub REST API directly.
 
-Install:
-
-```bash
-# macOS (Homebrew)
-brew install gh
-
-# Debian/Ubuntu
-sudo apt install gh
-
-# Windows (winget)
-winget install --id GitHub.cli
-```
-
-Authenticate (interactive):
+You now have two ways to authorize:
 
 ```bash
-gh auth login
+export GITHUB_TOKEN="your_token"
 ```
 
-After login, `gh` commands used by the helper will work from the repository directory.
+or open the built-in TUI menu and use `GitHub authorization` to paste and save a token locally in `~/.terminalutils/github-auth.json`.
+
+Recommended permissions:
+
+```text
+Classic token: repo
+Fine-grained token: Pull requests (read/write), Contents (read/write), Metadata (read)
+```
 
 ## Usage
 
 Run interactively from repository root:
 
 ```bash
-python util_handler.py
+node util-handler.js
 # or use the platform launcher
 ./util.sh         # Unix-like
 util.ps1          # PowerShell
 ```
 
-The launcher scripts forward command-line arguments to the Python menu and try to use the `PYTHON` environment variable when set.
+The launcher scripts forward command-line arguments to the Node.js menu and try to use the `NODE` environment variable when set.
 
 ## Automatic installer (one-liners)
 
@@ -158,17 +153,17 @@ If you plan to extend the project:
 
 ## Recent features (implemented)
 
-- Update check and notification system ([`update_check.py`](update_check.py:1)):
+- Update check and notification system ([`update-check.js`](update-check.js:1)):
   - background_check writes a cache and a flag file `.update_available.json` and runs silently from auxiliary scripts;
-  - interactive check (menu) reads latest GitHub release and compares with local [`pyproject.toml`](pyproject.toml:1) version;
+  - interactive check (menu) reads latest GitHub release and compares with local [`package.json`](package.json:1) version;
   - caching prevents checks more often than every 5 minutes.
 
 - Cross-script notifications:
-  - auxiliary scripts (e.g. [`upload-handler.py`](upload-handler.py:1), [`new-version.py`](new-version.py:1), [`ssh-servers-handler.py`](ssh-servers-handler.py:1)) perform a background check and notify the user if an update is available (message suggests to open main utility and use "Check for updates").
+  - auxiliary scripts (e.g. [`upload-handler.js`](upload-handler.js:1), [`new-version.js`](new-version.js:1), [`ssh-servers-handler.js`](ssh-servers-handler.js:1)) perform a background check and notify the user if an update is available (message suggests to open main utility and use "Check for updates").
 
- - Repository configuration is stored in JSON ([`repos.json`](repos.json:1)) and loaded by [`repos.py`](repos.py:1). The upload helper can add detected repositories to this JSON and the menu presents repository → branch-pair selection.
+ - Repository configuration is stored in JSON ([`repos.json`](repos.json:1)) and loaded by [`repos.js`](repos.js:1). The upload helper can add detected repositories to this JSON and the menu presents repository -> branch-pair selection.
 
-- SSH helper improvements ([`ssh-servers-handler.py`](ssh-servers-handler.py:1)):
+- SSH helper improvements ([`ssh-servers-handler.js`](ssh-servers-handler.js:1)):
   - servers stored in [`servers.txt`](servers.txt:1) can include an optional password field (Display|user@host|password). Adding hosts now asks for host, user (required) and optional password.
   - Password-aware connection: uses `sshpass` on Unix or `plink` on Windows if password is provided; otherwise uses normal `ssh` (keys encouraged).
   - Detects host key mismatch and offers to remove the `known_hosts` entry (uses `ssh-keygen -R` or manual removal) and retry the connection.

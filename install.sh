@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Minimal installer script for TerminalUtils (Linux/macOS)
-# - Checks/installs Python (best-effort)
+# - Checks/installs Node.js (best-effort)
 # - Downloads latest release from GitHub and extracts it here
+# - Installs npm dependencies
 # - Adds the install folder to the user's PATH persistently
 
 set -euo pipefail
@@ -12,77 +13,70 @@ HERE="$(pwd)"
 info(){ printf "[info] %s\n" "$*"; }
 err(){ printf "[error] %s\n" "$*" >&2; }
 
-check_python(){
-  if command -v python3 >/dev/null 2>&1; then echo python3; return; fi
-  if command -v python >/dev/null 2>&1; then echo python; return; fi
+check_node(){
+  if command -v node >/dev/null 2>&1; then echo node; return; fi
   echo "";
 }
 
-install_python_linux(){
+install_node_linux(){
   if command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get update && sudo apt-get install -y python3 python3-venv
+    sudo apt-get update && sudo apt-get install -y nodejs npm
   elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y python3
+    sudo dnf install -y nodejs npm
   elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y python3
+    sudo yum install -y nodejs npm
   else
     return 1
   fi
 }
 
-install_python_macos(){
+install_node_macos(){
   if command -v brew >/dev/null 2>&1; then
-    brew install python
+    brew install node
   else
     return 1
   fi
 }
 
-ensure_python(){
-  PY=$(check_python)
-  if [ -n "$PY" ]; then
-    info "Found python: $($PY --version 2>&1)"
+ensure_node(){
+  NODE_BIN=$(check_node)
+  if [ -n "$NODE_BIN" ]; then
+    info "Found node: $($NODE_BIN --version 2>&1)"
     return 0
   fi
 
-  info "Python not found. Attempting to install..."
+  info "Node.js not found. Attempting to install..."
   uname_s=$(uname -s)
   if [ "$uname_s" = "Linux" ]; then
-    if install_python_linux; then
-      info "Python installed (Linux)."
+    if install_node_linux; then
+      info "Node.js installed (Linux)."
     else
-      err "Automatic installation failed. Please install Python 3 manually and re-run this script."
+      err "Automatic installation failed. Please install Node.js LTS manually and re-run this script."
       return 1
     fi
   elif [ "$uname_s" = "Darwin" ]; then
-    if install_python_macos; then
-      info "Python installed (macOS)."
+    if install_node_macos; then
+      info "Node.js installed (macOS)."
     else
-      err "Homebrew not found. Please install Homebrew and then Python, or install Python manually."
+      err "Homebrew not found. Please install Homebrew and then Node.js, or install Node.js manually."
       return 1
     fi
   else
-    err "Unsupported OS: $uname_s. Please install Python 3 manually."
+    err "Unsupported OS: $uname_s. Please install Node.js manually."
     return 1
   fi
 
-  PY=$(check_python)
-  if [ -z "$PY" ]; then
-    err "Python still not available after install attempt. Aborting."
+  NODE_BIN=$(check_node)
+  if [ -z "$NODE_BIN" ]; then
+    err "Node.js still not available after install attempt. Aborting."
     return 1
   fi
-  info "Using python: $PY"
+  info "Using node: $NODE_BIN"
 }
 
 download_and_extract(){
-  PY=$(check_python)
-  if [ -z "$PY" ]; then
-    err "Python not found. Aborting download."
-    return 1
-  fi
-
   info "Querying latest release for $REPO..."
-  ZIP_URL=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | $PY -c "import sys,json;print(json.load(sys.stdin)['zipball_url'])")
+  ZIP_URL=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | grep -m1 '"zipball_url"' | sed -E 's/.*"zipball_url"\s*:\s*"([^"]+)".*/\1/')
   if [ -z "$ZIP_URL" ]; then
     err "Could not determine latest release URL."
     return 1
@@ -97,8 +91,8 @@ download_and_extract(){
   if command -v unzip >/dev/null 2>&1; then
     unzip -q project.zip -d "$tmpdir"
   else
-    # fallback to python-based extraction
-    $PY -c "import zipfile; zipfile.ZipFile('project.zip').extractall('${tmpdir}')"
+    err "unzip is required to extract release archive. Please install unzip and retry."
+    return 1
   fi
   # Move extracted content (zipball usually contains a top-level folder)
   topdir=$(find "$tmpdir" -maxdepth 1 -type d | tail -n 1)
@@ -108,6 +102,15 @@ download_and_extract(){
     rm -rf "$tmpdir"
   fi
   rm -f project.zip
+}
+
+install_dependencies(){
+  if ! command -v npm >/dev/null 2>&1; then
+    err "npm not found after Node.js install."
+    return 1
+  fi
+  info "Installing npm dependencies..."
+  npm install --omit=dev
 }
 
 add_path_persist(){
@@ -132,14 +135,15 @@ add_path_persist(){
 
 main(){
   info "Starting installer for TerminalUtils"
-  if ! ensure_python; then
-    err "Python is required. Installer cannot continue."
+  if ! ensure_node; then
+    err "Node.js is required. Installer cannot continue."
     exit 1
   fi
 
   download_and_extract
+  install_dependencies
   info "Setting executable flags for scripts..."
-  chmod +x *.sh *.py *.ps1 2>/dev/null || true
+  chmod +x *.sh *.js *.ps1 2>/dev/null || true
 
   add_path_persist
 

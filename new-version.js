@@ -1,0 +1,227 @@
+const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
+const inquirer = require("inquirer");
+const {
+  backgroundCheck,
+  notifyIfUpdateAvailable,
+} = require("./update-check");
+const { header, info, warn, success, error } = require("./tui");
+
+const scriptDir = __dirname;
+
+function commandExists(command) {
+  const check = spawnSync(command, ["--version"], { stdio: "ignore" });
+  return check.status === 0;
+}
+
+function runCommand(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
+  });
+
+  if (result.status !== 0) {
+    const stderr = result.stderr || `${command} ${args.join(" ")} failed.`;
+    throw new Error(stderr.trim());
+  }
+
+  return result.stdout || "";
+}
+
+function ensureGitReady() {
+  if (!commandExists("git")) {
+    throw new Error("git not found in PATH.");
+  }
+
+  const status = runCommand("git", ["status", "--porcelain"], { capture: true }).trim();
+  if (status.length > 0) {
+    throw new Error("Git working tree has uncommitted changes.");
+  }
+}
+
+function bumpSemver(version, bumpType) {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) {
+    throw new Error(`Invalid semantic version: ${version}`);
+  }
+
+  const major = Number.parseInt(match[1], 10);
+  const minor = Number.parseInt(match[2], 10);
+  const patch = Number.parseInt(match[3], 10);
+
+  if (bumpType === "patch") {
+    return `${major}.${minor}.${patch + 1}`;
+  }
+
+  if (bumpType === "minor") {
+    return `${major}.${minor + 1}.0`;
+  }
+
+  if (bumpType === "major") {
+    return `${major + 1}.0.0`;
+  }
+
+  throw new Error(`Unsupported bump type: ${bumpType}`);
+}
+
+function gitCommitAndTag(version, filesToAdd) {
+  runCommand("git", ["add", ...filesToAdd]);
+  runCommand("git", ["commit", "-m", `v${version}`]);
+  runCommand("git", ["tag", `v${version}`]);
+  success(`Created commit and tag for v${version}.`);
+}
+
+function updatePyprojectVersion(newVersion) {
+  const pyprojectPath = "pyproject.toml";
+  const content = fs.readFileSync(pyprojectPath, "utf8");
+
+  let updated = content.replace(
+    /(^\[project\][\s\S]*?^version\s*=\s*")[^"]+(")/m,
+    `$1${newVersion}$2`
+  );
+
+  if (updated === content) {
+    updated = content.replace(
+      /(^\[tool\.poetry\][\s\S]*?^version\s*=\s*")[^"]+(")/m,
+      `$1${newVersion}$2`
+    );
+  }
+
+  if (updated === content) {
+    throw new Error("Failed to update version in pyproject.toml.");
+  }
+
+  fs.writeFileSync(pyprojectPath, updated, "utf8");
+}
+
+function readPyprojectVersion() {
+  const content = fs.readFileSync("pyproject.toml", "utf8");
+  const projectMatch = content.match(/\[project\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
+  if (projectMatch?.[1]) {
+    return projectMatch[1];
+  }
+
+  const poetryMatch = content.match(/\[tool\.poetry\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
+  if (poetryMatch?.[1]) {
+    return poetryMatch[1];
+  }
+
+  throw new Error("Could not find version in pyproject.toml.");
+}
+
+function runPythonProjectBump(bumpType) {
+  ensureGitReady();
+  const current = readPyprojectVersion();
+  const next = bumpSemver(current, bumpType);
+  info(`Current version: ${current}`);
+  info(`New version: ${next}`);
+
+  updatePyprojectVersion(next);
+  gitCommitAndTag(next, ["pyproject.toml"]);
+}
+
+function runVersionFileBump(bumpType) {
+  ensureGitReady();
+  const current = fs.readFileSync("VERSION", "utf8").trim();
+  const next = bumpSemver(current, bumpType);
+  info(`Current version: ${current}`);
+  info(`New version: ${next}`);
+
+  fs.writeFileSync("VERSION", `${next}\n`, "utf8");
+  gitCommitAndTag(next, ["VERSION"]);
+}
+
+function runNpmVersionBump(bumpType) {
+  if (!commandExists("npm")) {
+    throw new Error("npm not found in PATH.");
+  }
+
+  runCommand("npm", ["version", bumpType]);
+}
+
+async function runNewVersionMenu() {
+  await backgroundCheck(scriptDir);
+  notifyIfUpdateAvailable(scriptDir);
+  header("TerminalUtils", "Version bump utility");
+
+  const hasPackageJson = fs.existsSync("package.json");
+  const hasPyproject = fs.existsSync("pyproject.toml");
+  const hasVersionFile = fs.existsSync("VERSION");
+
+  if (!hasPackageJson && !hasPyproject && !hasVersionFile) {
+    throw new Error("No package.json, pyproject.toml, or VERSION file found.");
+  }
+
+  const projectChoices = [];
+  if (hasPackageJson) {
+    projectChoices.push({ name: "Node.js (package.json)", value: "npm" });
+  }
+  if (hasPyproject) {
+    projectChoices.push({ name: "Python (pyproject.toml)", value: "python" });
+  }
+  if (hasVersionFile) {
+    projectChoices.push({ name: "Plain VERSION file", value: "version_file" });
+  }
+  projectChoices.push({ name: "Exit", value: "exit" });
+
+  let projectType = projectChoices[0].value;
+  if (projectChoices.length > 2) {
+    const projectAnswer = await inquirer.prompt([
+      {
+        type: "list",
+        name: "projectType",
+        message: "Select project type:",
+        choices: projectChoices,
+      },
+    ]);
+    projectType = projectAnswer.projectType;
+  }
+
+  if (projectType === "exit") {
+    info("Exiting.");
+    return;
+  }
+
+  const bumpAnswer = await inquirer.prompt([
+    {
+      type: "list",
+      name: "bumpType",
+      message: "Select version bump type:",
+      choices: [
+        { name: "Patch (0.0.X)", value: "patch" },
+        { name: "Minor (0.X.0)", value: "minor" },
+        { name: "Major (X.0.0)", value: "major" },
+        { name: "Exit", value: "exit" },
+      ],
+    },
+  ]);
+
+  if (bumpAnswer.bumpType === "exit") {
+    info("Exiting.");
+    return;
+  }
+
+  if (projectType === "npm") {
+    runNpmVersionBump(bumpAnswer.bumpType);
+    success("npm version completed.");
+    return;
+  }
+
+  if (projectType === "python") {
+    runPythonProjectBump(bumpAnswer.bumpType);
+    return;
+  }
+
+  runVersionFileBump(bumpAnswer.bumpType);
+}
+
+if (require.main === module) {
+  runNewVersionMenu().catch((runError) => {
+    error(runError.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  runNewVersionMenu,
+};

@@ -1,4 +1,4 @@
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$python = $env:PYTHON
-if (-not $python) { $python = "python" }
-& $python (Join-Path $scriptDir "new-version.py") $args
+$node = $env:NODE
+if (-not $node) { $node = "node" }
+& $node (Join-Path $scriptDir "new-version.js") $args

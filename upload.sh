@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON=${PYTHON:-python3}
-"$PYTHON" "$SCRIPT_DIR/upload-handler.py" "$@"
+NODE=${NODE:-node}
+"$NODE" "$SCRIPT_DIR/upload-handler.js" "$@"

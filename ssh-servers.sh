@@ -1,4 +1,5 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 "$SCRIPT_DIR/ssh-servers-handler.py"
+NODE=${NODE:-node}
+"$NODE" "$SCRIPT_DIR/ssh-servers-handler.js" "$@"
