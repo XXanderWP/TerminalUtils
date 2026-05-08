@@ -4,6 +4,9 @@ const path = require("node:path");
 const inquirer = require("inquirer");
 const { info, warn, success } = require("./tui");
 
+const OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || "Ov23liMczaz46uIHIsZv";
+const OAUTH_SCOPE = "repo";
+
 function getConfigDir() {
   return path.join(os.homedir(), ".terminalutils");
 }
@@ -91,6 +94,86 @@ async function validateGithubToken(token) {
   return githubApi("/user", token);
 }
 
+async function postOAuthForm(url, payload) {
+  const body = new URLSearchParams(payload);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "terminalutils-auth",
+    },
+    body,
+  });
+
+  const text = await response.text();
+  const parsed = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    const message = parsed?.error_description || parsed?.error || `OAuth request failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  return parsed;
+}
+
+async function requestDeviceCode() {
+  return postOAuthForm("https://github.com/login/device/code", {
+    client_id: OAUTH_CLIENT_ID,
+    scope: OAUTH_SCOPE,
+  });
+}
+
+async function pollForDeviceToken(deviceCode, intervalSeconds) {
+  let waitSeconds = intervalSeconds;
+
+  while (true) {
+    await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+
+    const payload = await postOAuthForm("https://github.com/login/oauth/access_token", {
+      client_id: OAUTH_CLIENT_ID,
+      device_code: deviceCode,
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+    });
+
+    if (payload.access_token) {
+      return payload;
+    }
+
+    if (payload.error === "authorization_pending") {
+      continue;
+    }
+
+    if (payload.error === "slow_down") {
+      waitSeconds += 5;
+      continue;
+    }
+
+    if (payload.error === "expired_token") {
+      throw new Error("Device code expired. Start authorization again.");
+    }
+
+    if (payload.error === "access_denied") {
+      throw new Error("GitHub authorization was canceled.");
+    }
+
+    throw new Error(payload.error_description || payload.error || "GitHub device authorization failed.");
+  }
+}
+
+async function startDeviceFlow() {
+  const device = await requestDeviceCode();
+  info("GitHub OAuth device authorization started.");
+  console.log(`Open: ${device.verification_uri}`);
+  console.log(`Code: ${device.user_code}`);
+  info("Enter the code in your browser, then return here. Waiting for confirmation...");
+
+  const tokenPayload = await pollForDeviceToken(device.device_code, Number(device.interval || 5));
+  const user = await validateGithubToken(tokenPayload.access_token);
+  writeStoredAuth(tokenPayload.access_token);
+  success(`Authorized as ${user.login} via GitHub OAuth.`);
+  return { token: tokenPayload.access_token, user };
+}
+
 async function promptForToken() {
   const answers = await inquirer.prompt([
     {
@@ -106,11 +189,12 @@ async function promptForToken() {
 }
 
 function printTokenHelp() {
-  info("Create a GitHub token with pull request and contents access for the target repositories.");
-  console.log("Open: https://github.com/settings/tokens");
+  info("GitHub OAuth Device Flow is available and recommended for this CLI.");
+  console.log("If you prefer a manual token, open: https://github.com/settings/tokens");
   console.log("Classic token scopes: repo");
   console.log("Fine-grained token permissions: Pull requests (read/write), Contents (read/write), Metadata (read)");
-  warn("Token is stored locally in ~/.terminalutils/github-auth.json if you choose to save it.");
+  console.log(`OAuth app review page: https://github.com/settings/connections/applications/${OAUTH_CLIENT_ID}`);
+  warn("Saved credentials are stored locally in ~/.terminalutils/github-auth.json.");
 }
 
 async function ensureGithubAuth() {
@@ -131,6 +215,7 @@ async function ensureGithubAuth() {
         name: "action",
         message: "GitHub authorization is required. Choose an action:",
         choices: [
+          { name: "Sign in with GitHub OAuth", value: "oauth" },
           { name: "Paste and save token", value: "save" },
           { name: "Show token setup help", value: "help" },
           { name: "Cancel", value: "cancel" },
@@ -145,6 +230,15 @@ async function ensureGithubAuth() {
     if (action === "help") {
       printTokenHelp();
       continue;
+    }
+
+    if (action === "oauth") {
+      try {
+        return await startDeviceFlow();
+      } catch (authError) {
+        warn(authError.message);
+        continue;
+      }
     }
 
     const token = await promptForToken();
@@ -179,6 +273,7 @@ async function manageGithubAuth() {
       name: "action",
       message: "GitHub authorization:",
       choices: [
+        { name: "Sign in with GitHub OAuth", value: "oauth" },
         { name: token ? "Replace saved token" : "Add token", value: "save" },
         { name: "Show token setup help", value: "help" },
         { name: "Remove saved token", value: "remove", disabled: !readStoredAuth() },
@@ -193,6 +288,11 @@ async function manageGithubAuth() {
 
   if (action === "help") {
     printTokenHelp();
+    return;
+  }
+
+  if (action === "oauth") {
+    await startDeviceFlow();
     return;
   }
 
