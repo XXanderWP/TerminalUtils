@@ -8,7 +8,7 @@ const {
   interactiveCheck,
   notifyIfUpdateAvailable,
 } = require("./update-check");
-const { header, error } = require("./tui");
+const { header, error, panel, bullets, section } = require("./tui");
 
 const scriptDir = __dirname;
 
@@ -16,8 +16,19 @@ async function runMainMenu() {
   await backgroundCheck(scriptDir);
   notifyIfUpdateAvailable(scriptDir);
   header("TerminalUtils", "Interactive terminal utilities");
+  panel("Workspace", [
+    "Pick a focused terminal workflow.",
+    "Each tool keeps prompts short and shows only the next useful step.",
+  ]);
 
   while (true) {
+    section("Main Menu", "Choose the area you want to work in");
+    bullets([
+      "Updates checks new releases and can apply them in place.",
+      "SSH opens saved server connections and maintenance actions.",
+      "GitHub tools handle auth, PR creation, and merges.",
+    ]);
+
     const { action } = await inquirer.prompt([
       {
         type: "list",
@@ -25,23 +36,23 @@ async function runMainMenu() {
         message: "What do you want to do?",
         choices: [
           {
-            name: "Check for updates",
+            name: "Check for updates  ·  inspect and apply newer release",
             value: "updates",
           },
           {
-            name: "Connect to server via SSH",
+            name: "Connect to server via SSH  ·  open saved hosts",
             value: "ssh",
           },
           {
-            name: "Create and merge GitHub pull request",
+            name: "Create and merge GitHub pull request  ·  repo branch flow",
             value: "upload",
           },
           {
-            name: "GitHub authorization",
+            name: "GitHub authorization  ·  manage OAuth or token",
             value: "github-auth",
           },
           {
-            name: "Update project version",
+            name: "Update project version  ·  bump and tag release",
             value: "version",
           },
           {

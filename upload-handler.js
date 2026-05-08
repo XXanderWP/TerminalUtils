@@ -8,7 +8,7 @@ const {
 } = require("./update-check");
 const { ensureGithubAuth } = require("./github-auth");
 const { loadRepoOptions, saveRepoOptions } = require("./repos");
-const { header, info, warn, success, error } = require("./tui");
+const { header, info, warn, success, error, panel, kv, section, step, bullets } = require("./tui");
 
 const scriptDir = __dirname;
 
@@ -75,10 +75,40 @@ async function githubApi(method, endpoint, token, body) {
 
   if (!response.ok) {
     const message = payload?.message || `GitHub API request failed (${response.status})`;
-    throw new Error(message);
+    const apiError = new Error(message);
+    apiError.status = response.status;
+    apiError.documentationUrl = payload?.documentation_url || "";
+    throw apiError;
   }
 
   return payload;
+}
+
+function isOAuthAppRestrictionError(err) {
+  const combined = `${err?.message || ""} ${err?.documentationUrl || ""}`.toLowerCase();
+  return (
+    combined.includes("oauth app access restrictions") ||
+    combined.includes("restricting-access-to-your-organization-s-data")
+  );
+}
+
+function showOAuthRestrictionGuidance(repoSlug, userLogin) {
+  const org = repoSlug.split("/")[0] || "organization";
+  panel(
+    "OAuth app blocked by organization policy",
+    [
+      kv("Organization", org),
+      kv("User", userLogin || "unknown"),
+      "The token is valid, but this OAuth App is not approved for org data access.",
+    ],
+    { borderColor: "yellow" }
+  );
+  section("How to fix", "Pick one option");
+  bullets([
+    "Ask an org owner to approve this OAuth App in Organization Settings -> Third-party access.",
+    "Or switch to a Personal Access Token (classic: repo, or fine-grained with PR/Contents permissions).",
+    "Then run upload again.",
+  ]);
 }
 
 function inferPairsFromRemoteBranches() {
@@ -254,6 +284,11 @@ async function runUploadMenu() {
   await backgroundCheck(scriptDir);
   notifyIfUpdateAvailable(scriptDir);
   header("TerminalUtils", "GitHub pull request and merge");
+  panel("Flow", [
+    "1. Resolve GitHub authorization",
+    "2. Pick repository and branch direction",
+    "3. Create PR if needed and merge it",
+  ], { borderColor: "yellow" });
 
   const auth = await ensureGithubAuth();
   if (!auth?.token) {
@@ -261,9 +296,15 @@ async function runUploadMenu() {
     return;
   }
   const token = auth.token;
+  panel("Session", [kv("GitHub user", auth.user?.login || "unknown")]);
 
   const remoteUrl = getGitRemoteUrl();
   const remoteSlug = parseRemoteToSlug(remoteUrl);
+  section("Repository Context", "Detection from current git remote");
+  panel("Detected remote", [
+    kv("Origin", remoteUrl || "not found"),
+    kv("Repo slug", remoteSlug || "not detected"),
+  ]);
 
   let repoOptions = loadRepoOptions(scriptDir);
   repoOptions = await maybeAddDetectedRepo(repoOptions, remoteSlug);
@@ -277,26 +318,46 @@ async function runUploadMenu() {
     info("Canceled.");
     return;
   }
+  panel("Selected repository", [
+    kv("Name", selectedRepo.name || selectedRepo.repo),
+    kv("Slug", selectedRepo.repo),
+    kv("Pairs", String(selectedRepo.pairs?.length || 0)),
+  ]);
 
   const pair = await selectPair(selectedRepo);
   if (!pair) {
     info("Canceled.");
     return;
   }
+  section("Execution Plan", "About to run GitHub API operations");
+  bullets([
+    `Head branch: ${pair.head}`,
+    `Base branch: ${pair.base}`,
+    "Open PR will be reused when possible.",
+  ]);
 
-  info(
-    `Creating or finding PR for ${selectedRepo.repo}: ${pair.head} -> ${pair.base}`
-  );
-  const pr = await ensurePullRequest(selectedRepo.repo, pair, token);
-  success(`Pull request ready: #${pr.number}`);
+  let pr;
+  try {
+    step("Create or find pull request", `${selectedRepo.repo}  ${pair.head} -> ${pair.base}`);
+    pr = await ensurePullRequest(selectedRepo.repo, pair, token);
+    success(`Pull request ready: #${pr.number}`);
 
-  info(`Merging pull request #${pr.number}...`);
-  await mergePullRequest(selectedRepo.repo, pr.number, token);
+    step("Merge pull request", `#${pr.number}`);
+    await mergePullRequest(selectedRepo.repo, pr.number, token);
+  } catch (runError) {
+    if (isOAuthAppRestrictionError(runError)) {
+      showOAuthRestrictionGuidance(selectedRepo.repo, auth.user?.login);
+      return;
+    }
+    throw runError;
+  }
 
   success("Pull request merged successfully.");
-  console.log(`Repository: https://github.com/${selectedRepo.repo}`);
-  console.log(`Pull Request: https://github.com/${selectedRepo.repo}/pull/${pr.number}`);
-  console.log(`Actions: https://github.com/${selectedRepo.repo}/actions`);
+  panel("Useful links", [
+    `Repository: https://github.com/${selectedRepo.repo}`,
+    `Pull Request: https://github.com/${selectedRepo.repo}/pull/${pr.number}`,
+    `Actions: https://github.com/${selectedRepo.repo}/actions`,
+  ], { borderColor: "green" });
 }
 
 if (require.main === module) {

@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const inquirer = require("inquirer");
-const { info, warn, success } = require("./tui");
+const { info, warn, success, panel, kv, section, bullets, step } = require("./tui");
 
 const OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || "Ov23liMczaz46uIHIsZv";
 const OAUTH_SCOPE = "repo";
@@ -162,10 +162,18 @@ async function pollForDeviceToken(deviceCode, intervalSeconds) {
 
 async function startDeviceFlow() {
   const device = await requestDeviceCode();
-  info("GitHub OAuth device authorization started.");
-  console.log(`Open: ${device.verification_uri}`);
-  console.log(`Code: ${device.user_code}`);
-  info("Enter the code in your browser, then return here. Waiting for confirmation...");
+  panel("GitHub OAuth", [
+    kv("Open", device.verification_uri),
+    kv("Code", device.user_code),
+    kv("Scope", OAUTH_SCOPE),
+    kv("Client ID", OAUTH_CLIENT_ID),
+  ], { borderColor: "cyan" });
+  bullets([
+    "Open the GitHub device page in any browser.",
+    "Enter the code exactly as shown.",
+    "Return here after approving access.",
+  ]);
+  step("Wait for approval", `GitHub checks every ${Number(device.interval || 5)}s`);
 
   const tokenPayload = await pollForDeviceToken(device.device_code, Number(device.interval || 5));
   const user = await validateGithubToken(tokenPayload.access_token);
@@ -189,11 +197,17 @@ async function promptForToken() {
 }
 
 function printTokenHelp() {
-  info("GitHub OAuth Device Flow is available and recommended for this CLI.");
-  console.log("If you prefer a manual token, open: https://github.com/settings/tokens");
-  console.log("Classic token scopes: repo");
-  console.log("Fine-grained token permissions: Pull requests (read/write), Contents (read/write), Metadata (read)");
-  console.log(`OAuth app review page: https://github.com/settings/connections/applications/${OAUTH_CLIENT_ID}`);
+  section("Authorization help", "Choose OAuth for the smoothest CLI flow");
+  panel("Manual token fallback", [
+    "Open: https://github.com/settings/tokens",
+    "Classic token scopes: repo",
+    "Fine-grained permissions: Pull requests read/write, Contents read/write, Metadata read",
+    `OAuth app review page: https://github.com/settings/connections/applications/${OAUTH_CLIENT_ID}`,
+  ]);
+  bullets([
+    "If an organization enforces OAuth App restrictions, an org owner must approve this app.",
+    "A PAT can still work as fallback when org policy allows it.",
+  ]);
   warn("Saved credentials are stored locally in ~/.terminalutils/github-auth.json.");
 }
 
@@ -202,6 +216,10 @@ async function ensureGithubAuth() {
   if (currentToken) {
     try {
       const user = await validateGithubToken(currentToken);
+      panel("GitHub session", [
+        kv("Authorized as", user.login),
+        kv("Source", process.env.GITHUB_TOKEN || process.env.GH_TOKEN ? "environment" : "saved session"),
+      ], { borderColor: "green" });
       return { token: currentToken, user };
     } catch {
       warn("Saved GitHub token is invalid or expired.");
@@ -265,7 +283,15 @@ async function manageGithubAuth() {
     }
   }
 
-  info(currentUser ? `Authorized as ${currentUser.login}.` : "GitHub authorization is not configured.");
+  panel("Current auth state", [
+    kv("Status", currentUser ? "authorized" : "not configured"),
+    kv("User", currentUser?.login || "-"),
+    kv("Storage", readStoredAuth() ? "saved locally" : "environment only / none"),
+  ]);
+  bullets([
+    "OAuth device flow avoids manual token copying.",
+    "Manual token entry stays available as a fallback.",
+  ]);
 
   const { action } = await inquirer.prompt([
     {

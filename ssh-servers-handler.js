@@ -7,7 +7,7 @@ const {
   backgroundCheck,
   notifyIfUpdateAvailable,
 } = require("./update-check");
-const { header, info, warn, error, success } = require("./tui");
+const { header, info, warn, error, success, panel, kv, section, bullets, step } = require("./tui");
 
 const scriptDir = __dirname;
 const serversFile = path.join(scriptDir, "servers.txt");
@@ -187,14 +187,27 @@ async function runSshServersMenu() {
 
   while (true) {
     const servers = loadServers();
+    panel("Saved servers", [
+      kv("Available", String(servers.length)),
+      kv("Config file", serversFile),
+      servers.length === 0 ? "Add a host to start using quick SSH launches." : "Stored hosts can be launched with one selection.",
+    ]);
+    section("SSH Actions", "Connect, add host entries, or maintain known_hosts");
+    if (servers.length > 0) {
+      bullets([
+        "Stored password is optional and kept in plain text if used.",
+        "Host key mismatches can be fixed directly from the flow.",
+      ]);
+    }
+
     const choices = servers.map((server, index) => ({
-      name: `${server.name} (${server.addr})`,
+      name: `${server.name}  ·  ${server.addr}`,
       value: `server:${index}`,
     }));
 
     choices.push(
-      { name: "Add server", value: "add" },
-      { name: "Clear SSH known_hosts", value: "clear" },
+      { name: "Add server  ·  save a new host entry", value: "add" },
+      { name: "Clear SSH known_hosts  ·  reset host fingerprints", value: "clear" },
       { name: "Back", value: "back" }
     );
 
@@ -228,7 +241,12 @@ async function runSshServersMenu() {
       continue;
     }
 
-    info(`Connecting to ${server.addr}...`);
+    panel("Connection target", [
+      kv("Name", server.name),
+      kv("Address", server.addr),
+      kv("Auth", server.password ? "password or helper" : "ssh keys / interactive"),
+    ]);
+    step("Connect", server.addr);
     const probe = probeSsh(server.addr);
     if (probe.ok) {
       runSsh(server);
@@ -242,6 +260,10 @@ async function runSshServersMenu() {
     ) {
       const host = extractHost(server.addr);
       warn(`Host key mismatch detected for ${host}.`);
+      panel("Host verification", [
+        "The saved fingerprint differs from the remote host.",
+        "You can remove the old key and retry safely if the host change is expected.",
+      ], { borderColor: "yellow" });
       const { fixHost } = await inquirer.prompt([
         {
           type: "confirm",

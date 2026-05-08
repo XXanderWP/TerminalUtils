@@ -5,7 +5,7 @@ const {
   backgroundCheck,
   notifyIfUpdateAvailable,
 } = require("./update-check");
-const { header, info, warn, success, error } = require("./tui");
+const { header, info, warn, success, error, panel, kv, section, bullets, step } = require("./tui");
 
 const scriptDir = __dirname;
 
@@ -143,6 +143,11 @@ async function runNewVersionMenu() {
   await backgroundCheck(scriptDir);
   notifyIfUpdateAvailable(scriptDir);
   header("TerminalUtils", "Version bump utility");
+  panel("Release flow", [
+    "Choose the project manifest to update.",
+    "A clean git tree is required for pyproject.toml and VERSION flows.",
+    "Version bumps create commit and tag where applicable.",
+  ]);
 
   const hasPackageJson = fs.existsSync("package.json");
   const hasPyproject = fs.existsSync("pyproject.toml");
@@ -151,6 +156,13 @@ async function runNewVersionMenu() {
   if (!hasPackageJson && !hasPyproject && !hasVersionFile) {
     throw new Error("No package.json, pyproject.toml, or VERSION file found.");
   }
+
+  section("Detected manifests", "Only available release targets are shown");
+  bullets([
+    `package.json: ${hasPackageJson ? "available" : "missing"}`,
+    `pyproject.toml: ${hasPyproject ? "available" : "missing"}`,
+    `VERSION: ${hasVersionFile ? "available" : "missing"}`,
+  ]);
 
   const projectChoices = [];
   if (hasPackageJson) {
@@ -201,17 +213,25 @@ async function runNewVersionMenu() {
     return;
   }
 
+  panel("Selected change", [
+    kv("Project", projectType),
+    kv("Bump", bumpAnswer.bumpType),
+  ]);
+
   if (projectType === "npm") {
+    step("Run npm version", bumpAnswer.bumpType);
     runNpmVersionBump(bumpAnswer.bumpType);
     success("npm version completed.");
     return;
   }
 
   if (projectType === "python") {
+    step("Update pyproject.toml", bumpAnswer.bumpType);
     runPythonProjectBump(bumpAnswer.bumpType);
     return;
   }
 
+  step("Update VERSION file", bumpAnswer.bumpType);
   runVersionFileBump(bumpAnswer.bumpType);
 }
 
