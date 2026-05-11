@@ -10,7 +10,10 @@ const { header, info, warn, success, error, panel, kv, section, bullets, step } 
 const scriptDir = __dirname;
 
 function commandExists(command) {
-  const check = spawnSync(command, ["--version"], { stdio: "ignore" });
+  const check = spawnSync(command, ["--version"], {
+    stdio: "ignore",
+    shell: process.platform === "win32",
+  });
   return check.status === 0;
 }
 
@@ -18,7 +21,12 @@ function runCommand(command, args, options = {}) {
   const result = spawnSync(command, args, {
     encoding: "utf8",
     stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    shell: process.platform === "win32",
   });
+
+  if (result.error?.code === "ENOENT") {
+    throw new Error(`${command} not found in PATH.`);
+  }
 
   if (result.status !== 0) {
     const stderr = result.stderr || `${command} ${args.join(" ")} failed.`;
