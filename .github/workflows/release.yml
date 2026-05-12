@@ -58,7 +58,8 @@ jobs:
         if: steps.check_release.outputs.exists == 'false'
         run: |
           npm run build
-          cp src/utils/install* /dist/
+          cp src/scripts/* ./dist/
+          cp src/utils/install* ./dist/
 
       - name: Create GitHub Release and upload payload
         if: steps.check_release.outputs.exists == 'false'
