@@ -68,5 +68,16 @@ jobs:
         with:
           tag_name: "v${{ steps.get_version.outputs.version }}"
           name: "v${{ steps.get_version.outputs.version }}"
-          body: "Automated release created by workflow from package.json version"
+          body: |
+            ## Installation commands
+            
+            Windows (PowerShell):
+            ```powershell
+            iwr -useb https://github.com/XXanderWP/TerminalUtils/releases/download/v${{ steps.get_version.outputs.version }}/install.ps1 | iex
+            ``` 
+
+            Linux/macOS (Bash):
+            ```bash
+            curl -fsSL https://github.com/XXanderWP/TerminalUtils/releases/download/v${{ steps.get_version.outputs.version }}/install.sh | bash
+            ```
           files: dist/*
