@@ -108,15 +108,13 @@ function Install-TerminalUtils {
 
 	Ensure-Command "Invoke-RestMethod"
 	Ensure-Command "Invoke-WebRequest"
-	Ensure-Command "Expand-Archive"
 
 	$apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
 	$tempDir = Join-Path ([IO.Path]::GetTempPath()) ("terminalutils-install-" + [Guid]::NewGuid().ToString("N"))
 	$releaseJsonPath = Join-Path $tempDir "release.json"
-	$zipPath = Join-Path $tempDir "release.zip"
-	$extractDir = Join-Path $tempDir "extract"
+	$assetsDir = Join-Path $tempDir "assets"
 
-	New-Item -ItemType Directory -Path $tempDir, $extractDir -Force | Out-Null
+	New-Item -ItemType Directory -Path $tempDir, $assetsDir -Force | Out-Null
 
 	try {
 		Run-WithSpinner "Requesting latest release metadata" {
@@ -127,9 +125,9 @@ function Install-TerminalUtils {
 
 		$releaseData = Get-Content -Path $releaseJsonPath -Raw | ConvertFrom-Json
 		$tag = [string]$releaseData.tag_name
-		$zipUrl = [string]$releaseData.zipball_url
-		if ([string]::IsNullOrWhiteSpace($zipUrl)) {
-			throw "Latest release zip URL not found."
+		$assets = @($releaseData.assets | Where-Object { -not [string]::IsNullOrWhiteSpace($_.browser_download_url) })
+		if ($assets.Count -eq 0) {
+			throw "No release assets found. Ensure files are uploaded to GitHub Release."
 		}
 
 		Write-Host "Latest release: $tag" -ForegroundColor Cyan
@@ -146,34 +144,24 @@ function Install-TerminalUtils {
 		New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 		Complete-Step "Installation directory prepared: $installDir"
 
-		Run-WithSpinner "Downloading release archive" {
-			Invoke-WebRequest -Uri $using:zipUrl -OutFile $using:zipPath -Headers @{ "User-Agent" = "terminalutils-installer" }
+		Run-WithSpinner "Downloading release assets" {
+			foreach ($asset in $using:assets) {
+				$outFile = Join-Path $using:assetsDir $asset.name
+				Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $outFile -Headers @{ "User-Agent" = "terminalutils-installer" }
+			}
 		}
-		Complete-Step "Release archive downloaded"
-
-		Run-WithSpinner "Extracting archive" {
-			Expand-Archive -LiteralPath $using:zipPath -DestinationPath $using:extractDir -Force
-		}
-		Complete-Step "Archive extracted"
-
-		$topDir = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
-		if (-not $topDir) {
-			throw "Could not locate extracted release folder."
-		}
+		Complete-Step "Release assets downloaded"
 
 		Run-WithSpinner "Copying files to destination" {
-			Get-ChildItem -Path $using:topDir.FullName -Force | ForEach-Object {
-				if ($_.Name -eq ".git" -or $_.Name -eq ".github") {
-					return
-				}
-
+			Get-ChildItem -Path $using:assetsDir -File -Force | ForEach-Object {
 				$target = Join-Path $using:installDir $_.Name
 				if (Test-Path -LiteralPath $target) {
 					Remove-Item -LiteralPath $target -Recurse -Force
 				}
-				Copy-Item -LiteralPath $_.FullName -Destination $target -Recurse -Force
+				Copy-Item -LiteralPath $_.FullName -Destination $target -Force
 			}
 		}
+		Complete-Step "Assets copied to destination"
 
 		Remove-InstallFiles -InstallDir $installDir
 		Complete-Step "Files installed and install* scripts removed"

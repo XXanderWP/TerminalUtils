@@ -199,25 +199,22 @@ main() {
 	print_banner
 
 	need_cmd curl
-	need_cmd unzip
+	need_cmd awk
 
 	local api_url="https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
 	local tmp_root
 	tmp_root=$(mktemp -d)
 	local release_json="${tmp_root}/release.json"
-	local zip_file="${tmp_root}/release.zip"
-	local extract_dir="${tmp_root}/extract"
+	local assets_dir="${tmp_root}/assets"
 
 	trap 'rm -rf "${tmp_root:-}"' EXIT
 
 	spinner_run "Requesting latest release metadata" curl -fsSL "$api_url" -o "$release_json" || fail "Could not fetch latest release metadata."
 	step_done "Latest release metadata loaded"
 
-	local tag_name zip_url
+	local tag_name
 	tag_name=$(json_extract "tag_name" "$release_json")
-	zip_url=$(json_extract "zipball_url" "$release_json")
-
-	[[ -n "$zip_url" ]] || fail "Latest release zip URL not found."
+	mkdir -p "$assets_dir"
 
 	printf "${C_CYAN}${C_BOLD}Latest release:${C_RESET} %s\n\n" "${tag_name:-unknown}"
 
@@ -238,30 +235,37 @@ main() {
 	install_dir=$(normalize_path "$user_dir")
 	step_done "Installation directory prepared: ${install_dir}"
 
-	spinner_run "Downloading release archive" curl -fsSL "$zip_url" -o "$zip_file" || fail "Download failed."
-	step_done "Release archive downloaded"
+	spinner_run "Downloading release assets" bash -c '
+		json_file="$1"
+		out_dir="$2"
+		set -euo pipefail
 
-	mkdir -p "$extract_dir"
-	spinner_run "Extracting files" unzip -q "$zip_file" -d "$extract_dir" || fail "Archive extraction failed."
-	step_done "Archive extracted"
+		awk -F\" "\
+		  /\\\"browser_download_url\\\"/ { print \$4 }\
+		" "$json_file" | while IFS= read -r url; do
+			[[ -n "$url" ]] || continue
+			name="${url##*/}"
+			curl -fsSL "$url" -o "$out_dir/$name"
+		done
+	' _ "$release_json" "$assets_dir" || fail "Asset download failed."
 
-	local top_dir
-	top_dir=$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)
-	[[ -n "$top_dir" ]] || fail "Could not locate extracted release folder."
+	if ! find "$assets_dir" -mindepth 1 -maxdepth 1 -type f | grep -q .; then
+		fail "No release assets found. Ensure files are uploaded to GitHub Release."
+	fi
+	step_done "Release assets downloaded"
 
 	spinner_run "Copying files to destination" bash -c '
 		src="$1"
 		dst="$2"
-		shopt -s dotglob nullglob
+		set -euo pipefail
+		shopt -s nullglob
 		for item in "$src"/*; do
 			name="$(basename "$item")"
-			if [[ "$name" == ".git" || "$name" == ".github" ]]; then
-				continue
-			fi
 			rm -rf "$dst/$name"
-			cp -R "$item" "$dst/$name"
+			cp -f "$item" "$dst/$name"
 		done
-	' _ "$top_dir" "$install_dir" || fail "Copy operation failed."
+	' _ "$assets_dir" "$install_dir" || fail "Copy operation failed."
+	step_done "Assets copied to destination"
 
 	find "$install_dir" -maxdepth 1 -type f -name 'install*' -delete || true
 	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers 2>/dev/null || true
