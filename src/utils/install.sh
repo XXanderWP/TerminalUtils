@@ -208,7 +208,7 @@ main() {
 	local zip_file="${tmp_root}/release.zip"
 	local extract_dir="${tmp_root}/extract"
 
-	trap 'rm -rf "$tmp_root"' EXIT
+	trap 'rm -rf "${tmp_root:-}"' EXIT
 
 	spinner_run "Requesting latest release metadata" curl -fsSL "$api_url" -o "$release_json" || fail "Could not fetch latest release metadata."
 	step_done "Latest release metadata loaded"
