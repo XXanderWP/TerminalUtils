@@ -71,6 +71,41 @@ function Ensure-Command {
 	}
 }
 
+function Test-TerminalUtilsDir {
+	param([string]$Dir)
+
+	if ([string]::IsNullOrWhiteSpace($Dir) -or -not (Test-Path -LiteralPath $Dir -PathType Container)) {
+		return $false
+	}
+
+	$required = @("util", "upload", "new-version", "ssh-servers", "util.ps1", "upload.ps1", "new-version.ps1", "ssh-servers.ps1")
+	foreach ($name in $required) {
+		$path = Join-Path $Dir $name
+		if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+			return $false
+		}
+	}
+
+	return $true
+}
+
+function Get-ExistingInstallDirFromPath {
+	$entries = @($env:Path -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+	foreach ($entry in $entries) {
+		try {
+			$resolved = [IO.Path]::GetFullPath($entry)
+			if (Test-TerminalUtilsDir -Dir $resolved) {
+				return $resolved
+			}
+		}
+		catch {
+			continue
+		}
+	}
+
+	return $null
+}
+
 function Add-ToUserPath {
 	param([string]$InstallDir)
 
@@ -108,13 +143,15 @@ function Install-TerminalUtils {
 
 	Ensure-Command "Invoke-RestMethod"
 	Ensure-Command "Invoke-WebRequest"
+	Ensure-Command "Expand-Archive"
 
 	$apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
 	$tempDir = Join-Path ([IO.Path]::GetTempPath()) ("terminalutils-install-" + [Guid]::NewGuid().ToString("N"))
 	$releaseJsonPath = Join-Path $tempDir "release.json"
-	$assetsDir = Join-Path $tempDir "assets"
+	$mainZipPath = Join-Path $tempDir "main.zip"
+	$extractDir = Join-Path $tempDir "extract"
 
-	New-Item -ItemType Directory -Path $tempDir, $assetsDir -Force | Out-Null
+	New-Item -ItemType Directory -Path $tempDir, $extractDir -Force | Out-Null
 
 	try {
 		Run-WithSpinner "Requesting latest release metadata" {
@@ -125,43 +162,58 @@ function Install-TerminalUtils {
 
 		$releaseData = Get-Content -Path $releaseJsonPath -Raw | ConvertFrom-Json
 		$tag = [string]$releaseData.tag_name
-		$assets = @($releaseData.assets | Where-Object { -not [string]::IsNullOrWhiteSpace($_.browser_download_url) })
-		if ($assets.Count -eq 0) {
-			throw "No release assets found. Ensure files are uploaded to GitHub Release."
+		$mainZipAsset = $releaseData.assets | Where-Object { $_.name -eq "main.zip" } | Select-Object -First 1
+		if (-not $mainZipAsset -or [string]::IsNullOrWhiteSpace($mainZipAsset.browser_download_url)) {
+			throw "Release asset main.zip not found. Ensure files are uploaded to GitHub Release."
 		}
 
 		Write-Host "Latest release: $tag" -ForegroundColor Cyan
 		Write-Host ""
 
-		Write-Host "Installation directory" -ForegroundColor Gray
-		Write-Host "Press Enter to use default: $DefaultInstallDir" -ForegroundColor Gray
-		$userDir = Read-Host "Path"
+		$userDir = $null
+		$existingDir = Get-ExistingInstallDirFromPath
+		if (-not [string]::IsNullOrWhiteSpace($existingDir)) {
+			Write-Host "Detected existing TerminalUtils installation in PATH: $existingDir" -ForegroundColor Yellow
+			$answer = Read-Host "Update existing installation in this directory? [Y/n]"
+			if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^[Yy]$') {
+				$userDir = $existingDir
+			}
+		}
+
 		if ([string]::IsNullOrWhiteSpace($userDir)) {
-			$userDir = $DefaultInstallDir
+			Write-Host "Installation directory" -ForegroundColor Gray
+			Write-Host "Press Enter to use default: $DefaultInstallDir" -ForegroundColor Gray
+			$userDir = Read-Host "Path"
+			if ([string]::IsNullOrWhiteSpace($userDir)) {
+				$userDir = $DefaultInstallDir
+			}
 		}
 
 		$installDir = [IO.Path]::GetFullPath($userDir)
 		New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 		Complete-Step "Installation directory prepared: $installDir"
 
-		Run-WithSpinner "Downloading release assets" {
-			foreach ($asset in $using:assets) {
-				$outFile = Join-Path $using:assetsDir $asset.name
-				Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $outFile -Headers @{ "User-Agent" = "terminalutils-installer" }
-			}
+		Run-WithSpinner "Downloading main.zip" {
+			Invoke-WebRequest -Uri $using:mainZipAsset.browser_download_url -OutFile $using:mainZipPath -Headers @{ "User-Agent" = "terminalutils-installer" }
 		}
-		Complete-Step "Release assets downloaded"
+		Complete-Step "Release archive downloaded"
 
-		Run-WithSpinner "Copying files to destination" {
-			Get-ChildItem -Path $using:assetsDir -File -Force | ForEach-Object {
+		Run-WithSpinner "Extracting archive and copying files" {
+			if (Test-Path -LiteralPath $using:extractDir) {
+				Remove-Item -LiteralPath $using:extractDir -Recurse -Force -ErrorAction SilentlyContinue
+			}
+			New-Item -ItemType Directory -Path $using:extractDir -Force | Out-Null
+			Expand-Archive -LiteralPath $using:mainZipPath -DestinationPath $using:extractDir -Force
+
+			Get-ChildItem -Path $using:extractDir -Force | ForEach-Object {
 				$target = Join-Path $using:installDir $_.Name
 				if (Test-Path -LiteralPath $target) {
 					Remove-Item -LiteralPath $target -Recurse -Force
 				}
-				Copy-Item -LiteralPath $_.FullName -Destination $target -Force
+				Copy-Item -LiteralPath $_.FullName -Destination $target -Recurse -Force
 			}
 		}
-		Complete-Step "Assets copied to destination"
+		Complete-Step "Archive extracted and files copied"
 
 		Remove-InstallFiles -InstallDir $installDir
 		Complete-Step "Files installed and install* scripts removed"

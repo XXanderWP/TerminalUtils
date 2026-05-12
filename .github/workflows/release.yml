@@ -59,8 +59,9 @@ jobs:
         run: |
           npm run build
           cp src/scripts/* ./dist/
-          cp src/utils/install* ./dist/
           echo "${{ steps.get_version.outputs.version }}" > ./dist/VERSION
+          (cd dist && zip -r ../main.zip .)
+          cp src/utils/install* ./dist/
 
       - name: Create GitHub Release and upload payload
         if: steps.check_release.outputs.exists == 'false'
@@ -80,4 +81,7 @@ jobs:
             ```bash
             curl -fsSL https://github.com/XXanderWP/TerminalUtils/releases/download/v${{ steps.get_version.outputs.version }}/install.sh | bash
             ```
-          files: dist/*
+          files: |
+            main.zip
+            dist/install.ps1
+            dist/install.sh

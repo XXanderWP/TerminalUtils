@@ -100,6 +100,12 @@ json_extract() {
 	sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$file" | head -n 1
 }
 
+find_asset_url() {
+	local asset_name="$1"
+	local file="$2"
+	sed -n "s/.*\"browser_download_url\"[[:space:]]*:[[:space:]]*\"\([^\"]*\/${asset_name}\)\".*/\1/p" "$file" | head -n 1
+}
+
 normalize_path() {
 	local input="$1"
 	if [[ "$input" == ~* ]]; then
@@ -108,6 +114,33 @@ normalize_path() {
 	local dir
 	dir=$(mkdir -p "$input" && cd "$input" && pwd)
 	printf "%s" "$dir"
+}
+
+is_terminalutils_dir() {
+	local dir="$1"
+	[[ -d "$dir" ]] || return 1
+
+	local required=("util" "upload" "new-version" "ssh-servers" "util.ps1" "upload.ps1" "new-version.ps1" "ssh-servers.ps1")
+	local script
+	for script in "${required[@]}"; do
+		[[ -f "$dir/$script" ]] || return 1
+	done
+
+	return 0
+}
+
+find_existing_install_dir() {
+	local entry
+	IFS=':' read -r -a path_entries <<< "${PATH:-}"
+	for entry in "${path_entries[@]}"; do
+		[[ -n "$entry" ]] || continue
+		if is_terminalutils_dir "$entry"; then
+			normalize_path "$entry"
+			return 0
+		fi
+	done
+
+	return 1
 }
 
 append_path_block_sh() {
@@ -200,12 +233,14 @@ main() {
 
 	need_cmd curl
 	need_cmd awk
+	need_cmd unzip
 
 	local api_url="https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
 	local tmp_root
 	tmp_root=$(mktemp -d)
 	local release_json="${tmp_root}/release.json"
-	local assets_dir="${tmp_root}/assets"
+	local main_zip_path="${tmp_root}/main.zip"
+	local extract_dir="${tmp_root}/extract"
 
 	trap 'rm -rf "${tmp_root:-}"' EXIT
 
@@ -214,58 +249,71 @@ main() {
 
 	local tag_name
 	tag_name=$(json_extract "tag_name" "$release_json")
-	mkdir -p "$assets_dir"
+
+	local main_zip_url
+	main_zip_url=$(find_asset_url "main.zip" "$release_json")
+	[[ -n "$main_zip_url" ]] || fail "Release asset main.zip not found."
 
 	printf "${C_CYAN}${C_BOLD}Latest release:${C_RESET} %s\n\n" "${tag_name:-unknown}"
 
-	printf "Installation directory\n"
-	printf "Press Enter to use default: ${C_BOLD}%s${C_RESET}\n" "$DEFAULT_INSTALL_DIR"
-
 	local user_dir=""
-	if [[ -t 0 ]]; then
-		read -r -p "Path: " user_dir
-	elif { read -r -p "Path: " user_dir < /dev/tty; } 2>/dev/null; then
-		:
-	else
-		printf "${C_DIM}No interactive input available, using default path.${C_RESET}\n"
+	local existing_dir=""
+	if existing_dir=$(find_existing_install_dir); then
+		printf "${C_YELLOW}Detected existing TerminalUtils installation in PATH:${C_RESET} %s\n" "$existing_dir"
+		local update_answer="Y"
+		if [[ -t 0 ]]; then
+			read -r -p "Update existing installation in this directory? [Y/n]: " update_answer
+		elif { read -r -p "Update existing installation in this directory? [Y/n]: " update_answer < /dev/tty; } 2>/dev/null; then
+			:
+		else
+			printf "${C_DIM}No interactive input available, updating existing installation.${C_RESET}\n"
+		fi
+
+		if [[ -z "$update_answer" || "$update_answer" =~ ^[Yy]$ ]]; then
+			user_dir="$existing_dir"
+		else
+			user_dir=""
+		fi
 	fi
-	user_dir=${user_dir:-$DEFAULT_INSTALL_DIR}
+
+	if [[ -z "${user_dir:-}" ]]; then
+		printf "Installation directory\n"
+		printf "Press Enter to use default: ${C_BOLD}%s${C_RESET}\n" "$DEFAULT_INSTALL_DIR"
+
+		user_dir=""
+		if [[ -t 0 ]]; then
+			read -r -p "Path: " user_dir
+		elif { read -r -p "Path: " user_dir < /dev/tty; } 2>/dev/null; then
+			:
+		else
+			printf "${C_DIM}No interactive input available, using default path.${C_RESET}\n"
+		fi
+		user_dir=${user_dir:-$DEFAULT_INSTALL_DIR}
+	fi
 
 	local install_dir
 	install_dir=$(normalize_path "$user_dir")
 	step_done "Installation directory prepared: ${install_dir}"
 
-	spinner_run "Downloading release assets" bash -c '
-		json_file="$1"
-		out_dir="$2"
+	spinner_run "Downloading main.zip" curl -fsSL "$main_zip_url" -o "$main_zip_path" || fail "Could not download main.zip."
+	step_done "Release archive downloaded"
+
+	spinner_run "Extracting archive and copying files" bash -c '
+		archive="$1"
+		tmp_extract="$2"
+		dst="$3"
 		set -euo pipefail
-
-		awk -F\" "\
-		  /\\\"browser_download_url\\\"/ { print \$4 }\
-		" "$json_file" | while IFS= read -r url; do
-			[[ -n "$url" ]] || continue
-			name="${url##*/}"
-			curl -fsSL "$url" -o "$out_dir/$name"
-		done
-	' _ "$release_json" "$assets_dir" || fail "Asset download failed."
-
-	if ! find "$assets_dir" -mindepth 1 -maxdepth 1 -type f | grep -q .; then
-		fail "No release assets found. Ensure files are uploaded to GitHub Release."
-	fi
-	step_done "Release assets downloaded"
-
-	spinner_run "Copying files to destination" bash -c '
-		src="$1"
-		dst="$2"
-		set -euo pipefail
-		shopt -s nullglob
-		for item in "$src"/*; do
+		rm -rf "$tmp_extract"
+		mkdir -p "$tmp_extract"
+		unzip -oq "$archive" -d "$tmp_extract"
+		shopt -s dotglob nullglob
+		for item in "$tmp_extract"/*; do
 			name="$(basename "$item")"
 			rm -rf "$dst/$name"
-			cp -f "$item" "$dst/$name"
+			cp -Rf "$item" "$dst/$name"
 		done
-	' _ "$assets_dir" "$install_dir" || fail "Copy operation failed."
-	step_done "Assets copied to destination"
+	' _ "$main_zip_path" "$extract_dir" "$install_dir" || fail "Archive extraction failed."
+	step_done "Archive extracted and files copied"
 
 	find "$install_dir" -maxdepth 1 -type f -name 'install*' -delete || true
 	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers 2>/dev/null || true
