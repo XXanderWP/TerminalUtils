@@ -223,7 +223,15 @@ main() {
 
 	printf "Installation directory\n"
 	printf "Press Enter to use default: ${C_BOLD}%s${C_RESET}\n" "$DEFAULT_INSTALL_DIR"
-	read -r -p "Path: " user_dir
+
+	local user_dir=""
+	if [[ -t 0 ]]; then
+		read -r -p "Path: " user_dir
+	elif { read -r -p "Path: " user_dir < /dev/tty; } 2>/dev/null; then
+		:
+	else
+		printf "${C_DIM}No interactive input available, using default path.${C_RESET}\n"
+	fi
 	user_dir=${user_dir:-$DEFAULT_INSTALL_DIR}
 
 	local install_dir
