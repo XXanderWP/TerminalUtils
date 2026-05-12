@@ -1,8 +1,8 @@
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const inquirer = require("inquirer");
-const { info, warn, success, panel, kv, section, bullets, step } = require("./tui");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import inquirer from "inquirer";
+import { info, warn, success, panel, kv, section, bullets, step } from "./tui";
 
 const OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || "Ov23liMczaz46uIHIsZv";
 const OAUTH_SCOPE = "repo";
@@ -34,7 +34,7 @@ function readStoredAuth() {
   }
 }
 
-function writeStoredAuth(token) {
+function writeStoredAuth(token: string) {
   ensureConfigDir();
   const authPath = getAuthFilePath();
   fs.writeFileSync(authPath, `${JSON.stringify({ token }, null, 2)}\n`, {
@@ -69,7 +69,7 @@ function getGithubToken() {
   return stored?.token || "";
 }
 
-async function githubApi(endpoint, token) {
+async function githubApi(endpoint: string, token: string) {
   const response = await fetch(`https://api.github.com${endpoint}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -90,11 +90,11 @@ async function githubApi(endpoint, token) {
   return payload;
 }
 
-async function validateGithubToken(token) {
+async function validateGithubToken(token: string) {
   return githubApi("/user", token);
 }
 
-async function postOAuthForm(url, payload) {
+async function postOAuthForm(url: string, payload: Record<string, string>) {
   const body = new URLSearchParams(payload);
   const response = await fetch(url, {
     method: "POST",
@@ -123,7 +123,7 @@ async function requestDeviceCode() {
   });
 }
 
-async function pollForDeviceToken(deviceCode, intervalSeconds) {
+async function pollForDeviceToken(deviceCode: string, intervalSeconds: number) {
   let waitSeconds = intervalSeconds;
 
   while (true) {
@@ -253,7 +253,7 @@ async function ensureGithubAuth() {
     if (action === "oauth") {
       try {
         return await startDeviceFlow();
-      } catch (authError) {
+      } catch (authError: any) {
         warn(authError.message);
         continue;
       }
@@ -265,7 +265,7 @@ async function ensureGithubAuth() {
       writeStoredAuth(token);
       success(`Authorized as ${user.login}.`);
       return { token, user };
-    } catch (authError) {
+    } catch (authError: any) {
       warn(`Token validation failed: ${authError.message}`);
     }
   }
@@ -334,7 +334,7 @@ async function manageGithubAuth() {
   success(`Authorized as ${user.login}.`);
 }
 
-module.exports = {
+export {
   ensureGithubAuth,
   getGithubToken,
   manageGithubAuth,

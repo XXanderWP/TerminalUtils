@@ -1,5 +1,5 @@
-const fs = require("node:fs");
-const path = require("node:path");
+import fs from "node:fs";
+import path from "node:path";
 
 function loadRepoOptions(scriptDir = __dirname) {
   const jsonPath = path.join(scriptDir, "repos.json");
@@ -16,12 +16,12 @@ function loadRepoOptions(scriptDir = __dirname) {
   }
 }
 
-function saveRepoOptions(options, scriptDir = __dirname) {
+function saveRepoOptions(options: any[], scriptDir = __dirname) {
   const jsonPath = path.join(scriptDir, "repos.json");
   fs.writeFileSync(jsonPath, `${JSON.stringify(options, null, 2)}\n`, "utf8");
 }
 
-module.exports = {
+export {
   loadRepoOptions,
   saveRepoOptions,
 };

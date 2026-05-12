@@ -1,13 +1,13 @@
-const chalk = require("chalk");
-const boxenModule = require("boxen");
+import chalk from "chalk";
+import boxenModule from "boxen";
 const boxen =
-  typeof boxenModule === "function" ? boxenModule : boxenModule.default;
+  boxenModule;
 
 function divider() {
   console.log(chalk.hex("#5f7a8a")("─".repeat(54)));
 }
 
-function header(title, subtitle = "") {
+function header(title: string, subtitle = "") {
   const accent = chalk.hex("#6dd3ce");
   const titleLine = accent.bold(title);
   const body = subtitle ? `${titleLine}\n${chalk.dim(subtitle)}` : titleLine;
@@ -21,13 +21,13 @@ function header(title, subtitle = "") {
   );
 }
 
-function section(title, description = "") {
+function section(title: string, description = "") {
   const line = `${chalk.bold.white(title)}${description ? chalk.dim(`  ${description}`) : ""}`;
   console.log(`\n${line}`);
   divider();
 }
 
-function panel(title, lines = [], options = {}) {
+function panel(title: string, lines: string[] = [], options: { margin?: { top: number; bottom: number }; borderColor?: string; borderStyle?: "round" | "single" | "double" } = {}) {
   const content = [chalk.bold(title), ...lines.filter(Boolean)].join("\n");
   console.log(
     boxen(content, {
@@ -39,37 +39,37 @@ function panel(title, lines = [], options = {}) {
   );
 }
 
-function kv(label, value) {
+function kv(label: string, value: string) {
   return `${chalk.hex("#9fb3c8")(label.padEnd(14, " "))} ${value}`;
 }
 
-function bullets(items = []) {
+function bullets(items: string[] = []) {
   for (const item of items) {
     console.log(` ${chalk.hex("#6dd3ce")("•")} ${item}`);
   }
 }
 
-function step(label, detail = "") {
+function step(label: string, detail = "") {
   console.log(`${chalk.hex("#f4b860")("→")} ${chalk.bold(label)}${detail ? chalk.dim(`  ${detail}`) : ""}`);
 }
 
-function info(message) {
+function info(message: string) {
   console.log(chalk.cyan(`[info] ${message}`));
 }
 
-function warn(message) {
+function warn(message: string) {
   console.log(chalk.yellow(`[warn] ${message}`));
 }
 
-function success(message) {
+function success(message: string) {
   console.log(chalk.green(`[ok] ${message}`));
 }
 
-function error(message) {
+function error(message: string) {
   console.error(chalk.red(`[error] ${message}`));
 }
 
-module.exports = {
+export {
   bullets,
   divider,
   header,

@@ -1,10 +1,10 @@
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { execSync } = require("node:child_process");
-const AdmZip = require("adm-zip");
-const inquirer = require("inquirer");
-const { info, warn, success, error } = require("./tui");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execSync } from "node:child_process";
+import AdmZip from "adm-zip";
+import inquirer from "inquirer";
+import { info, warn, success, error } from "./tui";
 
 const OWNER = "XXanderWP";
 const REPO = "TerminalUtils";
@@ -25,7 +25,7 @@ function getLocalVersion(scriptDir = __dirname) {
   }
 }
 
-function parseVersion(version) {
+function parseVersion(version: string | null) {
   if (!version) {
     return [];
   }
@@ -37,7 +37,7 @@ function parseVersion(version) {
     .filter((n) => Number.isFinite(n));
 }
 
-function compareVersions(a, b) {
+function compareVersions(a: string | null, b: string | null) {
   const left = parseVersion(a);
   const right = parseVersion(b);
   const max = Math.max(left.length, right.length);
@@ -89,12 +89,12 @@ function readCache(scriptDir = __dirname) {
   }
 }
 
-function writeCache(cache, scriptDir = __dirname) {
+function writeCache(cache: Record<string, any>, scriptDir = __dirname) {
   const cachePath = path.join(scriptDir, CACHE_NAME);
   fs.writeFileSync(cachePath, JSON.stringify(cache), "utf8");
 }
 
-function writeFlag(latest, local, scriptDir = __dirname) {
+function writeFlag(latest: string, local: string, scriptDir = __dirname) {
   const flagPath = path.join(scriptDir, FLAG_NAME);
   fs.writeFileSync(
     flagPath,
@@ -132,7 +132,7 @@ function notifyIfUpdateAvailable(scriptDir = __dirname) {
   }
 }
 
-function copyRecursive(src, dest) {
+function copyRecursive(src: string, dest: string) {
   if (!fs.existsSync(src)) {
     return;
   }
@@ -158,7 +158,7 @@ function copyRecursive(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
-async function downloadFile(url, outPath) {
+async function downloadFile(url: string, outPath: string) {
   const response = await fetch(url, {
     headers: {
       "User-Agent": "terminalutils-update-check",
@@ -174,7 +174,7 @@ async function downloadFile(url, outPath) {
   fs.writeFileSync(outPath, Buffer.from(arrayBuffer));
 }
 
-async function downloadAndApplyUpdate(zipUrl, destDir = __dirname) {
+async function downloadAndApplyUpdate(zipUrl: string, destDir = __dirname) {
   if (!zipUrl) {
     error("No zip URL for release.");
     return false;
@@ -213,7 +213,7 @@ async function downloadAndApplyUpdate(zipUrl, destDir = __dirname) {
 
     success("Update applied. Restart the utility.");
     return true;
-  } catch (updateError) {
+  } catch (updateError: any) {
     error(`Update failed: ${updateError.message}`);
     return false;
   } finally {
@@ -311,12 +311,12 @@ async function interactiveCheck(scriptDir = __dirname) {
 
     info(`Local version (${localVersion}) is newer than latest release (${latest.tag}).`);
     removeFlag(scriptDir);
-  } catch (checkError) {
+  } catch (checkError: any) {
     error(`Could not check updates: ${checkError.message}`);
   }
 }
 
-module.exports = {
+export {
   backgroundCheck,
   interactiveCheck,
   notifyIfUpdateAvailable,

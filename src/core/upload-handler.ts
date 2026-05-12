@@ -1,18 +1,15 @@
-const fs = require("node:fs");
-const path = require("node:path");
-const { execSync } = require("node:child_process");
-const inquirer = require("inquirer");
-const {
-  backgroundCheck,
-  notifyIfUpdateAvailable,
-} = require("./update-check");
-const { ensureGithubAuth } = require("./github-auth");
-const { loadRepoOptions, saveRepoOptions } = require("./repos");
-const { header, info, warn, success, error, panel, kv, section, step, bullets } = require("./tui");
+import fs from "node:fs";
+import path from "node:path";
+import { execSync } from "node:child_process";
+import inquirer from "inquirer";
+import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
+import { ensureGithubAuth } from "./github-auth";
+import { loadRepoOptions, saveRepoOptions } from "./repos";
+import { header, info, warn, success, error, panel, kv, section, step, bullets } from "./tui";
 
 const scriptDir = __dirname;
 
-function runGit(args) {
+function runGit(args: string[]) {
   const output = execSync(`git ${args.join(" ")}`, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
@@ -28,9 +25,9 @@ function getGitRemoteUrl() {
   }
 }
 
-function parseRemoteToSlug(url) {
+function parseRemoteToSlug(url: string) {
   if (!url) {
-    return null;
+    return undefined;
   }
 
   const trimmed = url.trim();
@@ -39,7 +36,7 @@ function parseRemoteToSlug(url) {
     if (parts.length > 1) {
       return parts[1].replace(/\.git$/, "");
     }
-    return null;
+    return undefined;
   }
 
   const marker = "github.com/";
@@ -47,17 +44,17 @@ function parseRemoteToSlug(url) {
     return trimmed.split(marker)[1].replace(/\.git$/, "");
   }
 
-  return null;
+  return undefined;
 }
 
-function formatRepo(item) {
+function formatRepo(item: { name?: string; repo: string; pairs?: { head: string; base: string }[] }) {
   const name = item.name || item.repo;
   const firstPair = Array.isArray(item.pairs) && item.pairs[0] ? item.pairs[0] : null;
   const pairPart = firstPair ? `${firstPair.head} -> ${firstPair.base}` : "no pairs";
   return `${name} (${pairPart}) [${item.repo}]`;
 }
 
-async function githubApi(method, endpoint, token, body) {
+async function githubApi(method: string, endpoint: string, token: string, body?: any) {
   const response = await fetch(`https://api.github.com${endpoint}`, {
     method,
     headers: {
@@ -75,7 +72,7 @@ async function githubApi(method, endpoint, token, body) {
 
   if (!response.ok) {
     const message = payload?.message || `GitHub API request failed (${response.status})`;
-    const apiError = new Error(message);
+    const apiError = new Error(message) as any;
     apiError.status = response.status;
     apiError.documentationUrl = payload?.documentation_url || "";
     throw apiError;
@@ -84,7 +81,7 @@ async function githubApi(method, endpoint, token, body) {
   return payload;
 }
 
-function isOAuthAppRestrictionError(err) {
+function isOAuthAppRestrictionError(err: any) {
   const combined = `${err?.message || ""} ${err?.documentationUrl || ""}`.toLowerCase();
   return (
     combined.includes("oauth app access restrictions") ||
@@ -92,7 +89,7 @@ function isOAuthAppRestrictionError(err) {
   );
 }
 
-function showOAuthRestrictionGuidance(repoSlug, userLogin) {
+function showOAuthRestrictionGuidance(repoSlug: string, userLogin: string) {
   const org = repoSlug.split("/")[0] || "organization";
   panel(
     "OAuth app blocked by organization policy",
@@ -151,7 +148,7 @@ function inferPairsFromRemoteBranches() {
   ];
 }
 
-async function maybeAddDetectedRepo(repoOptions, remoteSlug) {
+async function maybeAddDetectedRepo(repoOptions: { name?: string; repo: string; pairs?: { head: string; base: string }[] }[], remoteSlug?: string) {
   if (!remoteSlug) {
     return repoOptions;
   }
@@ -186,7 +183,7 @@ async function maybeAddDetectedRepo(repoOptions, remoteSlug) {
   return next;
 }
 
-async function selectRepo(repoOptions, detectedSlug) {
+async function selectRepo(repoOptions: { name?: string; repo: string; pairs?: { head: string; base: string }[] }[], detectedSlug?: string) {
   const map = new Map();
   for (const item of repoOptions) {
     map.set(formatRepo(item), item);
@@ -225,7 +222,7 @@ async function selectRepo(repoOptions, detectedSlug) {
   return map.get(repoKey) || null;
 }
 
-async function selectPair(selectedRepo) {
+async function selectPair(selectedRepo: { name?: string; repo: string; pairs?: { head: string; base: string }[] }) {
   const pairs = Array.isArray(selectedRepo.pairs) ? selectedRepo.pairs : [];
   if (pairs.length === 0) {
     error("No branch pairs configured for this repository.");
@@ -236,7 +233,7 @@ async function selectPair(selectedRepo) {
     name: `${pair.head} -> ${pair.base}`,
     value: pair,
   }));
-  choices.push({ name: "Cancel", value: null });
+  choices.push({ name: "Cancel", value: null as any });
 
   const { pair } = await inquirer.prompt([
     {
@@ -250,7 +247,7 @@ async function selectPair(selectedRepo) {
   return pair;
 }
 
-async function ensurePullRequest(repoSlug, pair, token) {
+async function ensurePullRequest(repoSlug: string, pair: { head: string; base: string }, token: string) {
   const [owner] = repoSlug.split("/");
   const headQuery = encodeURIComponent(`${owner}:${pair.head}`);
   const baseQuery = encodeURIComponent(pair.base);
@@ -273,7 +270,7 @@ async function ensurePullRequest(repoSlug, pair, token) {
   });
 }
 
-async function mergePullRequest(repoSlug, prNumber, token) {
+async function mergePullRequest(repoSlug: string, prNumber: number, token: string) {
   return githubApi("PUT", `/repos/${repoSlug}/pulls/${prNumber}/merge`, token, {
     merge_method: "merge",
     commit_title: `Merge PR #${prNumber}`,
@@ -367,6 +364,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = {
+export {
   runUploadMenu,
 };

@@ -1,13 +1,10 @@
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const inquirer = require("inquirer");
-const {
-  backgroundCheck,
-  notifyIfUpdateAvailable,
-} = require("./update-check");
-const { header, info, warn, error, success, panel, kv, section, bullets, step } = require("./tui");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import inquirer from "inquirer";
+import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
+import { header, info, warn, error, success, panel, kv, section, bullets, step } from "./tui";
 
 const scriptDir = __dirname;
 const serversFile = path.join(scriptDir, "servers.txt");
@@ -31,7 +28,7 @@ function ensureServersFile() {
 function loadServers() {
   ensureServersFile();
   const lines = fs.readFileSync(serversFile, "utf8").split(/\r?\n/);
-  const servers = [];
+  const servers: SSHServer[] = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -47,29 +44,29 @@ function loadServers() {
     servers.push({
       name,
       addr,
-      password: password || null,
+      password: password || undefined,
     });
   }
 
   return servers;
 }
 
-function saveServer(server) {
+function saveServer(server: SSHServer) {
   const line = [server.name, server.addr, server.password || ""].join("|");
   fs.appendFileSync(serversFile, `${line}\n`, "utf8");
 }
 
-function extractHost(addr) {
+function extractHost(addr: string) {
   const normalized = addr.includes("@") ? addr.split("@")[1] : addr;
   return normalized.includes(":") ? normalized.split(":")[0] : normalized;
 }
 
-function hasBinary(binary) {
+function hasBinary(binary: string) {
   const check = spawnSync(binary, ["--version"], { stdio: "ignore" });
   return check.status === 0;
 }
 
-function probeSsh(addr) {
+function probeSsh(addr: string) {
   const probe = spawnSync(
     "ssh",
     ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=yes", addr, "true"],
@@ -82,7 +79,7 @@ function probeSsh(addr) {
   };
 }
 
-function removeKnownHost(host) {
+function removeKnownHost(host: string) {
   const byKeygen = spawnSync("ssh-keygen", ["-R", host], { stdio: "ignore" });
   if (byKeygen.status === 0) {
     success(`Removed known_hosts entry for ${host} via ssh-keygen.`);
@@ -101,7 +98,7 @@ function removeKnownHost(host) {
   success(`Removed lines containing ${host} from ${knownHosts}.`);
 }
 
-function runSsh(server) {
+function runSsh(server: SSHServer) {
   const platform = process.platform;
 
   if (server.password) {
@@ -291,6 +288,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = {
+export {
   runSshServersMenu,
 };

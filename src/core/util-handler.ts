@@ -1,14 +1,10 @@
-const inquirer = require("inquirer");
-const { runSshServersMenu } = require("./ssh-servers-handler");
-const { runUploadMenu } = require("./upload-handler");
-const { runNewVersionMenu } = require("./new-version");
-const { manageGithubAuth } = require("./github-auth");
-const {
-  backgroundCheck,
-  interactiveCheck,
-  notifyIfUpdateAvailable,
-} = require("./update-check");
-const { header, error, panel, bullets, section } = require("./tui");
+import inquirer from "inquirer";
+import { runSshServersMenu } from "./ssh-servers-handler";
+import { runUploadMenu } from "./upload-handler";
+import { runNewVersionMenu } from "./new-version";
+import { manageGithubAuth } from "./github-auth";
+import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
+import { header, error, panel, bullets, section } from "./tui";
 
 const scriptDir = __dirname;
 

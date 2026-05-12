@@ -1,15 +1,12 @@
-const fs = require("node:fs");
-const { spawnSync } = require("node:child_process");
-const inquirer = require("inquirer");
-const {
-  backgroundCheck,
-  notifyIfUpdateAvailable,
-} = require("./update-check");
-const { header, info, warn, success, error, panel, kv, section, bullets, step } = require("./tui");
+import fs from "node:fs";
+import { spawnSync } from "node:child_process";
+import inquirer from "inquirer";
+import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
+import { header, info, warn, success, error, panel, kv, section, bullets, step } from "./tui";
 
 const scriptDir = __dirname;
 
-function commandExists(command) {
+function commandExists(command: string) {
   const check = spawnSync(command, ["--version"], {
     stdio: "ignore",
     shell: process.platform === "win32",
@@ -17,14 +14,14 @@ function commandExists(command) {
   return check.status === 0;
 }
 
-function runCommand(command, args, options = {}) {
+function runCommand(command: string, args: string[], options: { capture?: boolean } = {}) {
   const result = spawnSync(command, args, {
     encoding: "utf8",
     stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
     shell: process.platform === "win32",
   });
 
-  if (result.error?.code === "ENOENT") {
+  if ((result.error as any)?.code === "ENOENT") {
     throw new Error(`${command} not found in PATH.`);
   }
 
@@ -47,7 +44,7 @@ function ensureGitReady() {
   }
 }
 
-function bumpSemver(version, bumpType) {
+function bumpSemver(version: string, bumpType: "patch" | "minor" | "major") {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (!match) {
     throw new Error(`Invalid semantic version: ${version}`);
@@ -72,14 +69,14 @@ function bumpSemver(version, bumpType) {
   throw new Error(`Unsupported bump type: ${bumpType}`);
 }
 
-function gitCommitAndTag(version, filesToAdd) {
+function gitCommitAndTag(version: string, filesToAdd: string[]) {
   runCommand("git", ["add", ...filesToAdd]);
   runCommand("git", ["commit", "-m", `v${version}`]);
   runCommand("git", ["tag", `v${version}`]);
   success(`Created commit and tag for v${version}.`);
 }
 
-function updatePyprojectVersion(newVersion) {
+function updatePyprojectVersion(newVersion: string) {
   const pyprojectPath = "pyproject.toml";
   const content = fs.readFileSync(pyprojectPath, "utf8");
 
@@ -117,7 +114,7 @@ function readPyprojectVersion() {
   throw new Error("Could not find version in pyproject.toml.");
 }
 
-function runPythonProjectBump(bumpType) {
+function runPythonProjectBump(bumpType: "patch" | "minor" | "major") {
   ensureGitReady();
   const current = readPyprojectVersion();
   const next = bumpSemver(current, bumpType);
@@ -128,7 +125,7 @@ function runPythonProjectBump(bumpType) {
   gitCommitAndTag(next, ["pyproject.toml"]);
 }
 
-function runVersionFileBump(bumpType) {
+function runVersionFileBump(bumpType: "patch" | "minor" | "major") {
   ensureGitReady();
   const current = fs.readFileSync("VERSION", "utf8").trim();
   const next = bumpSemver(current, bumpType);
@@ -139,7 +136,7 @@ function runVersionFileBump(bumpType) {
   gitCommitAndTag(next, ["VERSION"]);
 }
 
-function runNpmVersionBump(bumpType) {
+function runNpmVersionBump(bumpType: "patch" | "minor" | "major") {
   if (!commandExists("npm")) {
     throw new Error("npm not found in PATH.");
   }
@@ -250,6 +247,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = {
+export {
   runNewVersionMenu,
 };
