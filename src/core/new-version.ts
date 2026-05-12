@@ -2,7 +2,8 @@ import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import inquirer from "inquirer";
 import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
-import { header, info, warn, success, error, panel, kv, section, bullets, step } from "./tui";
+import { header, info, warn, success, error, panel, kv, section, bullets, step } from "./utils/tui";
+import { DetectApp } from "./utils/path";
 
 const scriptDir = __dirname;
 
@@ -240,7 +241,7 @@ async function runNewVersionMenu() {
   runVersionFileBump(bumpAnswer.bumpType);
 }
 
-if (require.main === module) {
+if (DetectApp() === "version") {
   runNewVersionMenu().catch((runError) => {
     error(runError.message);
     process.exit(1);

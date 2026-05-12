@@ -3,9 +3,10 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 import inquirer from "inquirer";
 import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
-import { ensureGithubAuth } from "./github-auth";
-import { loadRepoOptions, saveRepoOptions } from "./repos";
-import { header, info, warn, success, error, panel, kv, section, step, bullets } from "./tui";
+import { ensureGithubAuth } from "./utils/github-auth";
+import { loadRepoOptions, saveRepoOptions } from "./utils/repos";
+import { header, info, warn, success, error, panel, kv, section, step, bullets } from "./utils/tui";
+import { DetectApp } from "./utils/path";
 
 const scriptDir = __dirname;
 
@@ -357,7 +358,7 @@ async function runUploadMenu() {
   ], { borderColor: "green" });
 }
 
-if (require.main === module) {
+if (DetectApp() === "upload") {
   runUploadMenu().catch((runError) => {
     error(runError.message);
     process.exit(1);

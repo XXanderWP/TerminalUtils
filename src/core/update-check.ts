@@ -4,7 +4,7 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 import AdmZip from "adm-zip";
 import inquirer from "inquirer";
-import { info, warn, success, error } from "./tui";
+import { info, warn, success, error } from "./utils/tui";
 
 const OWNER = "XXanderWP";
 const REPO = "TerminalUtils";

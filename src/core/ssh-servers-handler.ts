@@ -4,7 +4,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import inquirer from "inquirer";
 import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
-import { header, info, warn, error, success, panel, kv, section, bullets, step } from "./tui";
+import { header, info, warn, error, success, panel, kv, section, bullets, step } from "./utils/tui";
+import { DetectApp } from "./utils/path";
 
 const scriptDir = __dirname;
 const serversFile = path.join(scriptDir, "servers.txt");
@@ -281,7 +282,7 @@ async function runSshServersMenu() {
   }
 }
 
-if (require.main === module) {
+if (DetectApp() === "ssh") {
   runSshServersMenu().catch((runError) => {
     error(runError.message);
     process.exit(1);

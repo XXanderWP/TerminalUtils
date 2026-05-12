@@ -2,9 +2,10 @@ import inquirer from "inquirer";
 import { runSshServersMenu } from "./ssh-servers-handler";
 import { runUploadMenu } from "./upload-handler";
 import { runNewVersionMenu } from "./new-version";
-import { manageGithubAuth } from "./github-auth";
+import { manageGithubAuth } from "./utils/github-auth";
 import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
-import { header, error, panel, bullets, section } from "./tui";
+import { header, error, panel, bullets, section } from "./utils/tui";
+import { DetectApp } from "./utils/path";
 
 const scriptDir = __dirname;
 
@@ -89,13 +90,9 @@ async function runMainMenu() {
   }
 }
 
-if (require.main === module) {
+if (DetectApp() === "util") {
   runMainMenu().catch((runError) => {
     error(runError.message);
     process.exit(1);
   });
 }
-
-module.exports = {
-  runMainMenu,
-};
