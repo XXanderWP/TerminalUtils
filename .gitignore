@@ -1,10 +1,3 @@
-# Created by venv; see https://docs.python.org/3/library/venv.html
-/lib
-/include
-/bin
-/.stfolder
-/__pycache__
-.DS_Store
-/*.txt
-/*.json
 /node_modules
+/dist
+.DS_Store
