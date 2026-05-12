@@ -12,14 +12,14 @@ const CACHE_NAME = ".update_cache.json";
 const FLAG_NAME = ".update_available.json";
 
 function getLocalVersion(scriptDir = __dirname) {
-  const packagePath = path.join(scriptDir, "package.json");
+  const packagePath = path.join(scriptDir, "VERSION");
   if (!fs.existsSync(packagePath)) {
     return null;
   }
 
   try {
-    const pkg = JSON.parse(fs.readFileSync(packagePath, "utf8"));
-    return pkg.version || null;
+    const version = fs.readFileSync(packagePath, "utf8").trim();
+    return version || null;
   } catch {
     return null;
   }
