@@ -26,14 +26,14 @@ jobs:
       - name: 🏷️ Get version from package.json
         id: get_version
         run: |
-          RELEASE_VERSION=$(node -p "require('./package.json').version")
-          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: 🔍 Check if release exists
         id: check_release
         shell: bash
         run: |
-          VERSION="v${{ env.RELEASE_VERSION }}"
+          VERSION="v${{ steps.get_version.outputs.version }}"
           echo "Checking for release $VERSION..."
           if gh release view "$VERSION" 2>/dev/null; then
             echo "exists=true" >> $GITHUB_OUTPUT
@@ -46,7 +46,7 @@ jobs:
       - name: ❌ Cancel workflow if release exists
         if: steps.check_release.outputs.exists == 'true'
         run: |
-          echo "Release v${{ env.RELEASE_VERSION }} already exists. Cancelling workflow."
+          echo "Release v${{ steps.get_version.outputs.version }} already exists. Cancelling workflow."
           exit 0
 
       - name: Install packages
@@ -65,7 +65,7 @@ jobs:
         if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "v${{ env.RELEASE_VERSION }}"
-          name: "v${{ env.RELEASE_VERSION }}"
+          tag_name: "v${{ steps.get_version.outputs.version }}"
+          name: "v${{ steps.get_version.outputs.version }}"
           body: "Automated release created by workflow from package.json version"
           files: dist/*
