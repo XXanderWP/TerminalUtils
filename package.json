@@ -15,7 +15,8 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "node ./build.mjs",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -80,6 +81,7 @@
     "@types/adm-zip": "^0.5.8",
     "@types/inquirer": "^9.0.9",
     "@types/node": "^25.7.0",
+    "esbuild": "^0.25.11",
     "typescript": "^6.0.3"
   }
 }
