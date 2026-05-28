@@ -4,6 +4,7 @@ export const DetectApp = () => {
     const isSSH = args.includes("ssh");
     const isUpload = args.includes("upload");
     const isNewVersion = args.includes("version");
+    const isPorts = args.includes("ports");
 
 
     if (isGit) {
@@ -20,6 +21,10 @@ export const DetectApp = () => {
 
     if (isNewVersion) {
         return "version";
+    }
+
+    if (isPorts) {
+        return "ports";
     }
 
     return 'util';

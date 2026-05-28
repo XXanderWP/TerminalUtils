@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import { runSshServersMenu } from "./ssh-servers-handler";
 import { runUploadMenu } from "./upload-handler";
 import { runNewVersionMenu } from "./new-version";
+import { runPortsMenu } from "./ports-handler";
 import { manageGithubAuth } from "./utils/github-auth";
 import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
 import { header, error, panel, bullets, section } from "./utils/tui";
@@ -24,6 +25,7 @@ async function runMainMenu() {
       "Updates checks new releases and can apply them in place.",
       "SSH opens saved server connections and maintenance actions.",
       "GitHub tools handle auth, PR creation, and merges.",
+      "Ports shows occupied sockets and allows terminating related processes.",
     ]);
 
     const { action } = await inquirer.prompt([
@@ -43,6 +45,10 @@ async function runMainMenu() {
           {
             name: "Create and merge GitHub pull request  ·  repo branch flow",
             value: "upload",
+          },
+          {
+            name: "Occupied ports  ·  inspect sockets and kill processes",
+            value: "ports",
           },
           {
             name: "GitHub authorization  ·  manage OAuth or token",
@@ -76,6 +82,11 @@ async function runMainMenu() {
 
     if (action === "upload") {
       await runUploadMenu();
+      continue;
+    }
+
+    if (action === "ports") {
+      await runPortsMenu();
       continue;
     }
 
