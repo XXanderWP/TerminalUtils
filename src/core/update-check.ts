@@ -70,10 +70,29 @@ async function fetchLatestRelease(owner = OWNER, repo = REPO) {
   }
 
   const data = await response.json();
+  const mainZipAsset = Array.isArray(data.assets)
+    ? data.assets.find((asset: any) => asset?.name === "main.zip")
+    : null;
+
   return {
     tag: data.tag_name,
-    zipballUrl: data.zipball_url,
+    zipballUrl: mainZipAsset?.browser_download_url || data.zipball_url,
   };
+}
+
+function resolveInstallDir(scriptDir = __dirname) {
+  const directMain = path.join(scriptDir, "main.js");
+  if (fs.existsSync(directMain)) {
+    return scriptDir;
+  }
+
+  const parentDir = path.dirname(scriptDir);
+  const parentMain = path.join(parentDir, "main.js");
+  if (path.basename(scriptDir) === "core" && fs.existsSync(parentMain)) {
+    return parentDir;
+  }
+
+  return scriptDir;
 }
 
 function readCache(scriptDir = __dirname) {
@@ -124,7 +143,8 @@ function removeFlag(scriptDir = __dirname) {
 }
 
 function notifyIfUpdateAvailable(scriptDir = __dirname) {
-  const flag = readFlag(scriptDir);
+  const installDir = resolveInstallDir(scriptDir);
+  const flag = readFlag(installDir);
   if (flag?.latest) {
     warn(
       `Update available (${flag.latest}). Open the main utility and choose \"Check for updates\".`
@@ -246,17 +266,18 @@ async function resolveLatest(scriptDir = __dirname) {
 
 async function backgroundCheck(scriptDir = __dirname) {
   try {
-    const latest = await resolveLatest(scriptDir);
-    const localVersion = getLocalVersion(scriptDir);
+    const installDir = resolveInstallDir(scriptDir);
+    const latest = await resolveLatest(installDir);
+    const localVersion = getLocalVersion(installDir);
 
     if (!localVersion || !latest?.tag) {
       return;
     }
 
     if (compareVersions(latest.tag, localVersion) > 0) {
-      writeFlag(latest.tag, localVersion, scriptDir);
+      writeFlag(latest.tag, localVersion, installDir);
     } else {
-      removeFlag(scriptDir);
+      removeFlag(installDir);
     }
   } catch {
     // Silent in background mode.
@@ -265,11 +286,12 @@ async function backgroundCheck(scriptDir = __dirname) {
 
 async function interactiveCheck(scriptDir = __dirname) {
   try {
-    const latest = await resolveLatest(scriptDir);
-    const localVersion = getLocalVersion(scriptDir);
+    const installDir = resolveInstallDir(scriptDir);
+    const latest = await resolveLatest(installDir);
+    const localVersion = getLocalVersion(installDir);
 
     if (!localVersion) {
-      warn("Local version not found in package.json.");
+      warn("Local version not found in VERSION file.");
       return;
     }
 
@@ -281,7 +303,7 @@ async function interactiveCheck(scriptDir = __dirname) {
     const cmp = compareVersions(latest.tag, localVersion);
     if (cmp > 0) {
       warn(`Update available: ${latest.tag} (local: ${localVersion}).`);
-      writeFlag(latest.tag, localVersion, scriptDir);
+      writeFlag(latest.tag, localVersion, installDir);
       const { applyNow } = await inquirer.prompt([
         {
           type: "confirm",
@@ -296,21 +318,21 @@ async function interactiveCheck(scriptDir = __dirname) {
         return;
       }
 
-      const updated = await downloadAndApplyUpdate(latest.zipballUrl, scriptDir);
+      const updated = await downloadAndApplyUpdate(latest.zipballUrl, installDir);
       if (updated) {
-        removeFlag(scriptDir);
+        removeFlag(installDir);
       }
       return;
     }
 
     if (cmp === 0) {
       success(`You are up to date (version ${localVersion}).`);
-      removeFlag(scriptDir);
+      removeFlag(installDir);
       return;
     }
 
     info(`Local version (${localVersion}) is newer than latest release (${latest.tag}).`);
-    removeFlag(scriptDir);
+    removeFlag(installDir);
   } catch (checkError: any) {
     error(`Could not check updates: ${checkError.message}`);
   }
