@@ -5,6 +5,7 @@ export const DetectApp = () => {
     const isUpload = args.includes("upload");
     const isNewVersion = args.includes("version");
     const isPorts = args.includes("ports");
+    const isUnlock = args.includes("unlock");
 
 
     if (isGit) {
@@ -25,6 +26,10 @@ export const DetectApp = () => {
 
     if (isPorts) {
         return "ports";
+    }
+
+    if (isUnlock) {
+        return "unlock";
     }
 
     return 'util';

@@ -3,6 +3,7 @@ import { runSshServersMenu } from "./ssh-servers-handler";
 import { runUploadMenu } from "./upload-handler";
 import { runNewVersionMenu } from "./new-version";
 import { runPortsMenu } from "./ports-handler";
+import { runUnlock } from "./unlock-handler";
 import { manageGithubAuth } from "./utils/github-auth";
 import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
 import { header, error, panel, bullets, section } from "./utils/tui";
@@ -26,6 +27,7 @@ async function runMainMenu() {
       "SSH opens saved server connections and maintenance actions.",
       "GitHub tools handle auth, PR creation, and merges.",
       "Ports shows occupied sockets and allows terminating related processes.",
+      "Unlock finds processes holding a file or folder and terminates them.",
     ]);
 
     const { action } = await inquirer.prompt([
@@ -49,6 +51,10 @@ async function runMainMenu() {
           {
             name: "Occupied ports  ·  inspect sockets and kill processes",
             value: "ports",
+          },
+          {
+            name: "Unlock path  ·  free file or folder from locking processes",
+            value: "unlock",
           },
           {
             name: "GitHub authorization  ·  manage OAuth or token",
@@ -87,6 +93,11 @@ async function runMainMenu() {
 
     if (action === "ports") {
       await runPortsMenu();
+      continue;
+    }
+
+    if (action === "unlock") {
+      await runUnlock();
       continue;
     }
 

@@ -316,7 +316,7 @@ main() {
 	step_done "Archive extracted and files copied"
 
 	find "$install_dir" -maxdepth 1 -type f -name 'install*' -delete || true
-	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers 2>/dev/null || true
+	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers "$install_dir"/ports "$install_dir"/unlock 2>/dev/null || true
 	step_done "Files installed and install* scripts removed"
 
 	printf "${C_YELLOW}→${C_RESET} Configuring PATH for common shells\n"
