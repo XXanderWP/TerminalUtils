@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execSync } from "node:child_process";
 import AdmZip from "adm-zip";
 import inquirer from "inquirer";
 import { info, warn, success, error } from "./utils/tui";
@@ -242,13 +241,28 @@ async function downloadAndApplyUpdate(
       copyRecursive(path.join(top, name), path.join(destDir, name));
     }
 
-    try {
-      execSync("chmod +x *.sh *.js *.ps1 migrate", {
-        cwd: destDir,
-        stdio: "ignore",
-      });
-    } catch {
-      // Ignore chmod errors.
+    if (process.platform !== "win32") {
+      const entrypoints = new Set([
+        "util",
+        "upload",
+        "new-version",
+        "ssh-servers",
+        "ports",
+        "unlock",
+        "migrate",
+      ]);
+
+      for (const name of fs.readdirSync(destDir)) {
+        const scriptFile = [".sh", ".js", ".ps1"].some((extension) => name.endsWith(extension));
+        if (!scriptFile && !entrypoints.has(name)) {
+          continue;
+        }
+
+        const filePath = path.join(destDir, name);
+        if (fs.statSync(filePath).isFile()) {
+          fs.chmodSync(filePath, 0o755);
+        }
+      }
     }
 
     success("Update applied. Restart the utility.");
