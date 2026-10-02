@@ -20,6 +20,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@napi-rs/keyring": "^2.1.0",
     "adm-zip": "^0.5.17",
     "ansi-align": "^3.0.1",
     "ansi-escapes": "^4.3.2",

@@ -145,6 +145,7 @@ function Install-TerminalUtils {
 	Ensure-Command "Invoke-RestMethod"
 	Ensure-Command "Invoke-WebRequest"
 	Ensure-Command "Expand-Archive"
+	Ensure-Command "npm"
 
 	$apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
 	if ($ReleaseTag -ne "__RELEASE_TAG__") {
@@ -218,6 +219,13 @@ function Install-TerminalUtils {
 			}
 		}
 		Complete-Step "Archive extracted and files copied"
+
+		Run-WithSpinner "Installing operating system credential store binding" {
+			& npm install --prefix $using:installDir --no-save --package-lock=false "@napi-rs/keyring@2.1.0"
+			if ($LASTEXITCODE -ne 0) {
+				throw "Could not install the credential store binding."
+			}
+		}
 
 		Remove-InstallFiles -InstallDir $installDir
 		Complete-Step "Files installed and install* scripts removed"

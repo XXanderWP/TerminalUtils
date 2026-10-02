@@ -61,7 +61,7 @@ You now have two ways to authorize:
 export GITHUB_TOKEN="your_token"
 ```
 
-or open the built-in TUI menu and use `GitHub authorization` to paste and save a token locally in `~/.terminalutils/github-auth.json`.
+or open the built-in TUI menu and use `GitHub authorization` to paste and save a token in the operating system credential store (Windows Credential Manager, macOS Keychain, or Linux Secret Service).
 
 Recommended permissions:
 
@@ -137,7 +137,11 @@ function util { param($args) & 'C:\path\to\repo\util.ps1' @args }
 
 ## Servers configuration
 
-The SSH helper reads servers from [`servers.txt`](servers.txt:1). Format:
+The SSH helper reads server names and addresses from `servers.txt`. Passwords are stored separately in the operating system credential store.
+
+Legacy plaintext GitHub tokens and SSH passwords are migrated automatically on the next application launch. Linux requires an unlocked Secret Service provider (such as GNOME Keyring or KWallet); if it is unavailable, migration and secret writes fail rather than saving credentials in plaintext. Environment variables such as `GITHUB_TOKEN` and `GH_TOKEN` remain the caller's responsibility.
+
+The server file format is:
 
 ```
 Display Name|user@host.example.com
@@ -165,8 +169,8 @@ If you plan to extend the project:
 
  - Repository configuration is stored in JSON ([`repos.json`](repos.json:1)) and loaded by [`repos.js`](repos.js:1). The upload helper can add detected repositories to this JSON and the menu presents repository -> branch-pair selection.
 
-- SSH helper improvements ([`ssh-servers-handler.js`](ssh-servers-handler.js:1)):
-  - servers stored in [`servers.txt`](servers.txt:1) can include an optional password field (Display|user@host|password). Adding hosts now asks for host, user (required) and optional password.
+- SSH helper improvements:
+  - server names and addresses are stored in `servers.txt`; optional passwords are stored in the operating system credential store. Adding hosts asks for host, user (required) and optional password.
   - Password-aware connection: uses `sshpass` on Unix or `plink` on Windows if password is provided; otherwise uses normal `ssh` (keys encouraged).
   - Detects host key mismatch and offers to remove the `known_hosts` entry (uses `ssh-keygen -R` or manual removal) and retry the connection.
   - A menu action to clear entire `~/.ssh/known_hosts` with an explicit confirmation.

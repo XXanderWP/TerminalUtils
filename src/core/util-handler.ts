@@ -9,8 +9,16 @@ import { manageGithubAuth } from "./utils/github-auth";
 import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
 import { header, error, panel, bullets, section } from "./utils/tui";
 import { DetectApp } from "./utils/path";
+import { migrateLegacySecrets } from "./utils/secrets";
 
 const scriptDir = __dirname;
+
+try {
+  migrateLegacySecrets(scriptDir);
+} catch (migrationError: any) {
+  console.error(`TerminalUtils could not secure saved credentials: ${migrationError.message}`);
+  process.exit(1);
+}
 
 async function runMainMenu() {
   await backgroundCheck(scriptDir);

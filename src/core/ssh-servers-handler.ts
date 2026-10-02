@@ -6,6 +6,7 @@ import inquirer from "inquirer";
 import { backgroundCheck, notifyIfUpdateAvailable } from "./update-check";
 import { header, info, warn, error, success, panel, kv, section, bullets, step } from "./utils/tui";
 import { DetectApp } from "./utils/path";
+import { getSecret, setSecret } from "./utils/secrets";
 
 const scriptDir = __dirname;
 const serversFile = path.join(scriptDir, "servers.txt");
@@ -17,7 +18,7 @@ function ensureServersFile() {
 
   const content = [
     "# Servers file for TerminalUtils",
-    "# Format: Display Name|user@host|optional_password",
+    "# Format: Display Name|user@host|@keyring (managed by TerminalUtils)",
     "# Lines starting with '#' are ignored.",
     "",
   ].join("\n");
@@ -37,7 +38,7 @@ function loadServers() {
       continue;
     }
 
-    const [name = "", addr = "", password = ""] = trimmed.split("|").map((part) => part.trim());
+    const [name = "", addr = "", storedSecret = ""] = trimmed.split("|").map((part) => part.trim());
     if (!name || !addr) {
       continue;
     }
@@ -45,7 +46,7 @@ function loadServers() {
     servers.push({
       name,
       addr,
-      password: password || undefined,
+      password: storedSecret === "@keyring" ? getSecret(`ssh:${addr}`) || undefined : undefined,
     });
   }
 
@@ -53,7 +54,10 @@ function loadServers() {
 }
 
 function saveServer(server: SSHServer) {
-  const line = [server.name, server.addr, server.password || ""].join("|");
+  if (server.password) {
+    setSecret(`ssh:${server.addr}`, server.password);
+  }
+  const line = [server.name, server.addr, ...(server.password ? ["@keyring"] : [])].join("|");
   fs.appendFileSync(serversFile, `${line}\n`, "utf8");
 }
 
@@ -174,7 +178,6 @@ async function addServer() {
     password: answers.password.trim() || null,
   });
 
-  warn("Server password is stored in plain text if provided.");
   success("Server added.");
 }
 
@@ -193,7 +196,7 @@ async function runSshServersMenu() {
     section("SSH Actions", "Connect, add host entries, or maintain known_hosts");
     if (servers.length > 0) {
       bullets([
-        "Stored password is optional and kept in plain text if used.",
+        "Saved passwords are stored in the operating system credential store.",
         "Host key mismatches can be fixed directly from the flow.",
       ]);
     }

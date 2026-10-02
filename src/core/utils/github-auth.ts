@@ -1,59 +1,21 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import inquirer from "inquirer";
 import { info, warn, success, panel, kv, section, bullets, step } from "./tui";
+import { deleteSecret, getSecret, setSecret, GITHUB_TOKEN_ACCOUNT } from "./secrets";
 
 const OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || "Ov23liMczaz46uIHIsZv";
 const OAUTH_SCOPE = "repo";
 
-function getConfigDir() {
-  return path.join(os.homedir(), ".terminalutils");
-}
-
-function getAuthFilePath() {
-  return path.join(getConfigDir(), "github-auth.json");
-}
-
-function ensureConfigDir() {
-  fs.mkdirSync(getConfigDir(), { recursive: true });
-}
-
 function readStoredAuth() {
-  const authPath = getAuthFilePath();
-  if (!fs.existsSync(authPath)) {
-    return null;
-  }
-
-  try {
-    const raw = fs.readFileSync(authPath, "utf8");
-    const parsed = JSON.parse(raw);
-    return parsed?.token ? parsed : null;
-  } catch {
-    return null;
-  }
+  const token = getSecret(GITHUB_TOKEN_ACCOUNT);
+  return token ? { token } : null;
 }
 
 function writeStoredAuth(token: string) {
-  ensureConfigDir();
-  const authPath = getAuthFilePath();
-  fs.writeFileSync(authPath, `${JSON.stringify({ token }, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: 0o600,
-  });
-
-  try {
-    fs.chmodSync(authPath, 0o600);
-  } catch {
-    // Best effort on non-POSIX platforms.
-  }
+  setSecret(GITHUB_TOKEN_ACCOUNT, token);
 }
 
 function removeStoredAuth() {
-  const authPath = getAuthFilePath();
-  if (fs.existsSync(authPath)) {
-    fs.rmSync(authPath, { force: true });
-  }
+  deleteSecret(GITHUB_TOKEN_ACCOUNT);
 }
 
 function getGithubToken() {
@@ -208,7 +170,7 @@ function printTokenHelp() {
     "If an organization enforces OAuth App restrictions, an org owner must approve this app.",
     "A PAT can still work as fallback when org policy allows it.",
   ]);
-  warn("Saved credentials are stored locally in ~/.terminalutils/github-auth.json.");
+  warn("Saved credentials are stored in the operating system credential store.");
 }
 
 async function ensureGithubAuth() {

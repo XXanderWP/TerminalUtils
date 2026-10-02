@@ -15,6 +15,7 @@ async function run() {
     format: "cjs",
     target: "node18",
     bundle: true,
+    external: ["@napi-rs/keyring"],
     sourcemap: false,
     minify: false,
     logLevel: "info",

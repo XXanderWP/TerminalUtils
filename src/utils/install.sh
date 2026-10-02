@@ -235,6 +235,7 @@ main() {
 	need_cmd curl
 	need_cmd awk
 	need_cmd unzip
+	need_cmd npm
 
 	local api_url="https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
 	if [[ "$RELEASE_TAG" != "__RELEASE_TAG__" ]]; then
@@ -318,6 +319,8 @@ main() {
 		done
 	' _ "$main_zip_path" "$extract_dir" "$install_dir" || fail "Archive extraction failed."
 	step_done "Archive extracted and files copied"
+
+	spinner_run "Installing operating system credential store binding" npm install --prefix "$install_dir" --no-save --package-lock=false "@napi-rs/keyring@2.1.0" || fail "Could not install the credential store binding."
 
 	find "$install_dir" -maxdepth 1 -type f -name 'install*' -delete || true
 	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers "$install_dir"/ports "$install_dir"/unlock "$install_dir"/migrate 2>/dev/null || true
