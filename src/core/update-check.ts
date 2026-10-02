@@ -74,9 +74,13 @@ async function fetchLatestRelease(owner = OWNER, repo = REPO) {
     ? data.assets.find((asset: any) => asset?.name === "main.zip")
     : null;
 
+  if (!mainZipAsset?.browser_download_url) {
+    throw new Error("Release asset main.zip not found.");
+  }
+
   return {
     tag: data.tag_name,
-    zipballUrl: mainZipAsset?.browser_download_url || data.zipball_url,
+    zipballUrl: mainZipAsset.browser_download_url,
   };
 }
 
@@ -194,7 +198,11 @@ async function downloadFile(url: string, outPath: string) {
   fs.writeFileSync(outPath, Buffer.from(arrayBuffer));
 }
 
-async function downloadAndApplyUpdate(zipUrl: string, destDir = __dirname) {
+async function downloadAndApplyUpdate(
+  zipUrl: string,
+  expectedVersion: string,
+  destDir = __dirname
+) {
   if (!zipUrl) {
     error("No zip URL for release.");
     return false;
@@ -212,18 +220,30 @@ async function downloadAndApplyUpdate(zipUrl: string, destDir = __dirname) {
     const zip = new AdmZip(zipPath);
     zip.extractAllTo(extractPath, true);
 
-    const entries = fs
-      .readdirSync(extractPath)
-      .map((name) => path.join(extractPath, name))
-      .filter((entry) => fs.statSync(entry).isDirectory());
-    const top = entries.length > 0 ? entries[0] : extractPath;
+    let top = extractPath;
+    if (!fs.existsSync(path.join(top, "VERSION"))) {
+      const entries = fs
+        .readdirSync(extractPath)
+        .map((name) => path.join(extractPath, name))
+        .filter((entry) => fs.statSync(entry).isDirectory());
+      top = entries.find((entry) => fs.existsSync(path.join(entry, "VERSION"))) || "";
+    }
+
+    if (!top) {
+      throw new Error("Update package does not contain a VERSION file.");
+    }
+
+    const packageVersion = getLocalVersion(top);
+    if (!packageVersion || compareVersions(packageVersion, expectedVersion) !== 0) {
+      throw new Error(`Update package version does not match ${expectedVersion}.`);
+    }
 
     for (const name of fs.readdirSync(top)) {
       copyRecursive(path.join(top, name), path.join(destDir, name));
     }
 
     try {
-      execSync("chmod +x *.sh *.js *.ps1", {
+      execSync("chmod +x *.sh *.js *.ps1 migrate", {
         cwd: destDir,
         stdio: "ignore",
       });
@@ -318,7 +338,11 @@ async function interactiveCheck(scriptDir = __dirname) {
         return;
       }
 
-      const updated = await downloadAndApplyUpdate(latest.zipballUrl, installDir);
+      const updated = await downloadAndApplyUpdate(
+        latest.zipballUrl,
+        latest.tag,
+        installDir
+      );
       if (updated) {
         removeFlag(installDir);
       }

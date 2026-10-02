@@ -4,6 +4,7 @@ import { runUploadMenu } from "./upload-handler";
 import { runNewVersionMenu } from "./new-version";
 import { runPortsMenu } from "./ports-handler";
 import { runUnlock } from "./unlock-handler";
+import { runMigrateMenu } from "./migrate-handler";
 import { manageGithubAuth } from "./utils/github-auth";
 import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
 import { header, error, panel, bullets, section } from "./utils/tui";
@@ -28,6 +29,7 @@ async function runMainMenu() {
       "GitHub tools handle auth, PR creation, and merges.",
       "Ports shows occupied sockets and allows terminating related processes.",
       "Unlock finds processes holding a file or folder and terminates them.",
+      "Migration transfers folders directly between remote servers.",
     ]);
 
     const { action } = await inquirer.prompt([
@@ -55,6 +57,10 @@ async function runMainMenu() {
           {
             name: "Unlock path  ·  free file or folder from locking processes",
             value: "unlock",
+          },
+          {
+            name: "Server migration  ·  transfer folders between hosts",
+            value: "migrate",
           },
           {
             name: "GitHub authorization  ·  manage OAuth or token",
@@ -98,6 +104,11 @@ async function runMainMenu() {
 
     if (action === "unlock") {
       await runUnlock();
+      continue;
+    }
+
+    if (action === "migrate") {
+      await runMigrateMenu();
       continue;
     }
 

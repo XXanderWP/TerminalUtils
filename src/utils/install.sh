@@ -4,6 +4,7 @@ set -euo pipefail
 
 OWNER="XXanderWP"
 REPO="TerminalUtils"
+RELEASE_TAG="__RELEASE_TAG__"
 DEFAULT_INSTALL_DIR="${HOME}/terminalutils"
 
 if [[ -t 1 ]]; then
@@ -236,6 +237,9 @@ main() {
 	need_cmd unzip
 
 	local api_url="https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
+	if [[ "$RELEASE_TAG" != "__RELEASE_TAG__" ]]; then
+		api_url="https://api.github.com/repos/${OWNER}/${REPO}/releases/tags/${RELEASE_TAG}"
+	fi
 	local tmp_root
 	tmp_root=$(mktemp -d)
 	local release_json="${tmp_root}/release.json"
@@ -316,7 +320,7 @@ main() {
 	step_done "Archive extracted and files copied"
 
 	find "$install_dir" -maxdepth 1 -type f -name 'install*' -delete || true
-	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers "$install_dir"/ports "$install_dir"/unlock 2>/dev/null || true
+	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers "$install_dir"/ports "$install_dir"/unlock "$install_dir"/migrate 2>/dev/null || true
 	step_done "Files installed and install* scripts removed"
 
 	printf "${C_YELLOW}→${C_RESET} Configuring PATH for common shells\n"

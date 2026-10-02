@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $Owner = "XXanderWP"
 $Repo = "TerminalUtils"
+$ReleaseTag = "__RELEASE_TAG__"
 $DefaultInstallDir = Join-Path $HOME "terminalutils"
 
 $Script:TotalSteps = 6
@@ -146,6 +147,9 @@ function Install-TerminalUtils {
 	Ensure-Command "Expand-Archive"
 
 	$apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
+	if ($ReleaseTag -ne "__RELEASE_TAG__") {
+		$apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/tags/$ReleaseTag"
+	}
 	$tempDir = Join-Path ([IO.Path]::GetTempPath()) ("terminalutils-install-" + [Guid]::NewGuid().ToString("N"))
 	$releaseJsonPath = Join-Path $tempDir "release.json"
 	$mainZipPath = Join-Path $tempDir "main.zip"

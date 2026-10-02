@@ -17,6 +17,7 @@ Repository: https://github.com/XXanderWP/TerminalUtils
 
 This project contains small helpers and a simple interactive menu to perform frequent tasks:
 - connect to SSH servers,
+- transfer folders directly between two SSH servers,
 - create and merge GitHub pull requests (via GitHub REST API),
 - bump project versions for Node.js, Python-style `pyproject.toml`, or plain `VERSION` projects.
 
@@ -48,6 +49,7 @@ npm install
   - ssh
   - npm
   - `GITHUB_TOKEN` (or `GH_TOKEN`) environment variable for GitHub API operations
+  - `ssh` on the local machine; `rsync` on both remote servers for server-to-server migration
 
 ### GitHub Authorization
 
@@ -81,27 +83,27 @@ util.ps1          # PowerShell
 
 The launcher scripts forward command-line arguments to the Node.js menu and try to use the `NODE` environment variable when set.
 
+Server migration is available from the main menu or with `migrate`. Configure the source and destination, add source paths, test the SSH-agent-forwarded connection, then start the transfer. Destination authentication must be possible using a key loaded in the local `ssh-agent` and present in the destination user's `authorized_keys`. Optional Docker Compose handling stops source containers before transfer and starts them on the destination after a successful copy.
+
 ## Automatic installer (one-liners)
 
-You can install TerminalUtils automatically using the provided installer scripts. These one-liners fetch the latest installer from the repository and execute it.
+These commands fetch the installer attached to the latest GitHub release. Each release installer downloads the package attached to that same release.
 
 Unix (Linux / macOS):
 
 ```bash
-# download and run the installer (inspect the script before running)
-curl -sSL https://raw.githubusercontent.com/XXanderWP/TerminalUtils/main/install.sh | bash
+# Inspect the release installer before executing it
+curl -fsSL https://github.com/XXanderWP/TerminalUtils/releases/latest/download/install.sh | bash
 ```
 
 PowerShell (Windows):
 
 ```powershell
-# download and run the installer (inspect the script before running)
-irm https://raw.githubusercontent.com/XXanderWP/TerminalUtils/main/install.ps1 | iex
+# Inspect the release installer before executing it
+irm https://github.com/XXanderWP/TerminalUtils/releases/latest/download/install.ps1 | iex
 ```
 
-The installers are:
-- [`install.sh`](install.sh:1) — installer for Linux/macOS
-- [`install.ps1`](install.ps1:1) — installer for Windows PowerShell
+The latest release includes `install.sh` for Linux/macOS and `install.ps1` for Windows PowerShell.
 
 Security note: Always inspect remote install scripts before executing them on your machine.
 

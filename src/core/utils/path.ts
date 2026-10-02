@@ -6,6 +6,7 @@ export const DetectApp = () => {
     const isNewVersion = args.includes("version");
     const isPorts = args.includes("ports");
     const isUnlock = args.includes("unlock");
+    const isMigrate = args.includes("migrate");
 
 
     if (isGit) {
@@ -30,6 +31,10 @@ export const DetectApp = () => {
 
     if (isUnlock) {
         return "unlock";
+    }
+
+    if (isMigrate) {
+        return "migrate";
     }
 
     return 'util';

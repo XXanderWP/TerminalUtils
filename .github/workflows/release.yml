@@ -61,7 +61,8 @@ jobs:
           cp src/scripts/* ./dist/
           echo "${{ steps.get_version.outputs.version }}" > ./dist/VERSION
           (cd dist && zip -r ../main.zip .)
-          cp src/utils/install* ./dist/
+          sed "s/__RELEASE_TAG__/v${{ steps.get_version.outputs.version }}/g" src/utils/install.sh > ./dist/install.sh
+          sed "s/__RELEASE_TAG__/v${{ steps.get_version.outputs.version }}/g" src/utils/install.ps1 > ./dist/install.ps1
 
       - name: Create GitHub Release and upload payload
         if: steps.check_release.outputs.exists == 'false'
