@@ -206,7 +206,8 @@ configure_path() {
 	for seen in "${rc_files[@]}"; do
 		local is_new=1
 		local existing
-		for existing in "${unique_files[@]}"; do
+		# Bash 3.2 treats empty arrays as unset under set -u.
+		for existing in ${unique_files[@]+"${unique_files[@]}"}; do
 			if [[ "$existing" == "$seen" ]]; then
 				is_new=0
 				break
