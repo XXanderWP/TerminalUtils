@@ -5,6 +5,7 @@ import { runNewVersionMenu } from "./new-version";
 import { runPortsMenu } from "./ports-handler";
 import { runUnlock } from "./unlock-handler";
 import { runMigrateMenu } from "./migrate-handler";
+import { runDiskUsage } from "./disk-usage-handler";
 import { manageGithubAuth } from "./utils/github-auth";
 import { backgroundCheck, interactiveCheck, notifyIfUpdateAvailable } from "./update-check";
 import { header, error, panel, bullets, section } from "./utils/tui";
@@ -38,6 +39,7 @@ async function runMainMenu() {
       "Ports shows occupied sockets and allows terminating related processes.",
       "Unlock finds processes holding a file or folder and terminates them.",
       "Migration transfers folders directly between remote servers.",
+      "Disk usage scans directories and supports navigation, rescans, and deletion.",
     ]);
 
     const { action } = await inquirer.prompt([
@@ -69,6 +71,10 @@ async function runMainMenu() {
           {
             name: "Server migration  ·  transfer folders between hosts",
             value: "migrate",
+          },
+          {
+            name: "Disk usage  ·  browse directory sizes and remove entries",
+            value: "disk-usage",
           },
           {
             name: "GitHub authorization  ·  manage OAuth or token",
@@ -117,6 +123,11 @@ async function runMainMenu() {
 
     if (action === "migrate") {
       await runMigrateMenu();
+      continue;
+    }
+
+    if (action === "disk-usage") {
+      await runDiskUsage();
       continue;
     }
 

@@ -121,7 +121,7 @@ is_terminalutils_dir() {
 	local dir="$1"
 	[[ -d "$dir" ]] || return 1
 
-	local required=("util" "upload" "new-version" "ssh-servers" "util.ps1" "upload.ps1" "new-version.ps1" "ssh-servers.ps1")
+	local required=("util" "upload" "new-version" "ssh-servers" "disk-usage" "util.ps1" "upload.ps1" "new-version.ps1" "ssh-servers.ps1" "disk-usage.ps1")
 	local script
 	for script in "${required[@]}"; do
 		[[ -f "$dir/$script" ]] || return 1
@@ -324,7 +324,7 @@ main() {
 	spinner_run "Installing operating system credential store binding" npm install --prefix "$install_dir" --no-save --package-lock=false "@napi-rs/keyring@2.1.0" || fail "Could not install the credential store binding."
 
 	find "$install_dir" -maxdepth 1 -type f -name 'install*' -delete || true
-	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers "$install_dir"/ports "$install_dir"/unlock "$install_dir"/migrate 2>/dev/null || true
+	chmod +x "$install_dir"/*.sh "$install_dir"/util "$install_dir"/upload "$install_dir"/new-version "$install_dir"/ssh-servers "$install_dir"/disk-usage "$install_dir"/ports "$install_dir"/unlock "$install_dir"/migrate 2>/dev/null || true
 	step_done "Files installed and install* scripts removed"
 
 	printf "${C_YELLOW}→${C_RESET} Configuring PATH for common shells\n"

@@ -79,7 +79,7 @@ function Test-TerminalUtilsDir {
 		return $false
 	}
 
-	$required = @("util", "upload", "new-version", "ssh-servers", "util.ps1", "upload.ps1", "new-version.ps1", "ssh-servers.ps1")
+	$required = @("util", "upload", "new-version", "ssh-servers", "disk-usage", "util.ps1", "upload.ps1", "new-version.ps1", "ssh-servers.ps1", "disk-usage.ps1")
 	foreach ($name in $required) {
 		$path = Join-Path $Dir $name
 		if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {

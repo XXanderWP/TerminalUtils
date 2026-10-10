@@ -19,6 +19,7 @@ This project contains small helpers and a simple interactive menu to perform fre
 - connect to SSH servers,
 - transfer folders directly between two SSH servers,
 - create and merge GitHub pull requests (via GitHub REST API),
+- inspect disk usage recursively and remove files or folders from the terminal,
 - bump project versions for Node.js, Python-style `pyproject.toml`, or plain `VERSION` projects.
 
 All interactive scripts are implemented in Node.js and run in TUI format in the terminal (via `inquirer` and terminal UI styling). Platform-specific launchers for Unix (`.sh`) and Windows PowerShell (`.ps1`) are included.
@@ -82,6 +83,8 @@ util.ps1          # PowerShell
 ```
 
 The launcher scripts forward command-line arguments to the Node.js menu and try to use the `NODE` environment variable when set.
+
+Run the disk usage analyzer with `disk-usage` (or `disk-usage.ps1` on Windows), or choose **Disk usage** from the main menu. Select a directory to scan; on Linux, the scan can skip other mounted filesystems. Navigate with the arrow keys and Enter, use Backspace or Left Arrow to go to the parent, `r` to rescan the current directory, `d` to delete the selected entry after confirmation, and `q` to exit. Directory totals update immediately after deletion.
 
 Server migration is available from the main menu or with `migrate`. Configure the source and destination, add source paths, test the SSH-agent-forwarded connection, then start the transfer. Destination authentication must be possible using a key loaded in the local `ssh-agent` and present in the destination user's `authorized_keys`. Optional Docker Compose handling stops source containers before transfer and starts them on the destination after a successful copy.
 

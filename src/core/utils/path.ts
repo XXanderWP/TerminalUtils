@@ -7,6 +7,7 @@ export const DetectApp = () => {
     const isPorts = args.includes("ports");
     const isUnlock = args.includes("unlock");
     const isMigrate = args.includes("migrate");
+    const isDiskUsage = args.includes("disk-usage");
 
 
     if (isGit) {
@@ -35,6 +36,10 @@ export const DetectApp = () => {
 
     if (isMigrate) {
         return "migrate";
+    }
+
+    if (isDiskUsage) {
+        return "disk-usage";
     }
 
     return 'util';
